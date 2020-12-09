@@ -6,7 +6,7 @@ import { SelOptionsComponent } from '../../gui-helpers/sel-options/sel-options.c
 import { FlexHeadComponent } from './flex-head/flex-head.component';
 import { FlexEventComponent } from './flex-event/flex-event.component';
 import { FlexActionComponent } from './flex-action/flex-action.component';
-import { GaugeProperty, View } from '../../_models/hmi';
+import { GaugeSettings, GaugeProperty, View, GaugeEventType, GaugeEventActionType } from '../../_models/hmi';
 import { UserGroups } from '../../_models/user';
 
 @Component({
@@ -29,7 +29,8 @@ export class GaugePropertyComponent implements OnInit {
 	eventsSupported: boolean;
 	actionsSupported: any;
 	views: View[];
-	defaultValue: any;
+    defaultValue: any;
+    inputs: GaugeSettings[];
 
 	constructor(public dialog: MatDialog,
 		public dialogRef: MatDialogRef<GaugePropertyComponent>,
@@ -39,11 +40,28 @@ export class GaugePropertyComponent implements OnInit {
 		this.dialogType = this.data.dlgType;
 		this.eventsSupported = this.data.withEvents;
 		this.actionsSupported = this.data.withActions;
-		this.views = this.data.views;
+        this.views = this.data.views;
+        this.inputs = this.data.inputs;
+
 		this.property = JSON.parse(JSON.stringify(this.data.settings.property));
 		if (!this.property) {
 			this.property = new GaugeProperty();
 		}
+       
+        // // check for button and to add the old binded signal to a event
+        // if (this.data.settings.id.startsWith('HXB_') && this.property && this.property.variableId) {
+        //     let eventwithsetvalue = this.property.events.find(ev => GaugeEventType[ev.type] === GaugeEventType.click &&
+        //         GaugeEventActionType[ev.action] === GaugeEventActionType.onSetValue);
+        //     if (eventwithsetvalue) {
+        //         eventwithsetvalue.actoptions['variableSrc'] = this.property.variableSrc;
+        //         eventwithsetvalue.actoptions['variableId'] = this.property.variableId;
+        //         eventwithsetvalue.actoptions['variable'] = this.property.variable;
+        //         this.property.variable = "";
+        //         this.property.variableId = "";
+        //         this.property.variableSrc = "";
+        //     }
+        // }
+
 		this.defaultValue = this.data.default;
 
 		if (this.dialogType === GaugeDialogType.OnlyValue) {
@@ -81,6 +99,11 @@ export class GaugePropertyComponent implements OnInit {
 		}
 		if (this.flexAction) {
 			this.data.settings.property.actions = this.flexAction.getActions();
+		}
+		if (this.property.readonly) {
+			this.property.readonly = true;
+		} else {
+			delete this.property.readonly;
 		}
 	}
 
@@ -129,12 +152,18 @@ export class GaugePropertyComponent implements OnInit {
 		return false;
 	}
 
+	isReadonlyToShow() {
+		if (this.dialogType === GaugeDialogType.Step) {
+			return true;
+		}
+		return false;
+	}
+
 	onEditPermission() {
 		let permission = this.property.permission;
 		let dialogRef = this.dialog.open(DialogGaugePermission, {
-			minWidth: '350px',
-			data: { permission: permission },
-			position: { top: '90px' }
+			position: { top: '60px' },
+			data: { permission: permission }
 		});
 
 		dialogRef.afterClosed().subscribe(result => {
@@ -156,7 +185,8 @@ export enum GaugeDialogType {
 	Chart,
 	Gauge,
 	Pipe,
-	Slider
+	Slider,
+	Switch
 }
 
 @Component({

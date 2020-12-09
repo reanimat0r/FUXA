@@ -119,7 +119,7 @@ export class DeviceListComponent implements OnInit {
     }
 
     onAddTag() {
-        if (this.deviceSelected.type === DeviceType.OPCUA) {
+        if (this.deviceSelected.type === DeviceType.OPCUA || this.deviceSelected.type === DeviceType.BACnet) {
             this.addOpcTags(null);
         } else {
             let tag = new Tag();
@@ -129,11 +129,11 @@ export class DeviceListComponent implements OnInit {
 
     addOpcTags(tag: Tag) {
         let dialogRef = this.dialog.open(TagPropertyComponent, {
-            minWidth: '1200px',
-            minHeight: '750px',
+            // width: '1000px',
+            // height: '750px',
             panelClass: 'dialog-property',
             data: { device: this.deviceSelected, tag: tag, devices: this.devices },
-            position: { top: '80px' }
+            position: { top: '60px' }
         });
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
@@ -142,6 +142,9 @@ export class DeviceListComponent implements OnInit {
                     let tag: Tag = new Tag();
                     tag.id = n.id;
                     tag.name = n.id;
+                    if (this.deviceSelected.type === DeviceType.BACnet) {
+                        tag.label = n.text;
+                    }
                     tag.type = n.type;
                     tag.address = n.id;
                     this.checkToAdd(tag, result.device);
@@ -149,6 +152,14 @@ export class DeviceListComponent implements OnInit {
                 this.projectService.setDeviceTags(this.deviceSelected);
             }
         });
+    }
+
+    getTagLabel(tag: Tag) {
+        if (this.deviceSelected.type === DeviceType.BACnet) {
+            return tag.label;
+        } else {
+            return tag.name;
+        }
     }
 
     getAddress(tag: Tag) {
@@ -166,11 +177,9 @@ export class DeviceListComponent implements OnInit {
         let oldtag = tag.name;
         let temptag = JSON.parse(JSON.stringify(tag));
         let dialogRef = this.dialog.open(TagPropertyComponent, {
-            // minWidth: '700px',
-            // minHeight: '700px',
             panelClass: 'dialog-property',
             data: { device: this.deviceSelected, tag: temptag, devices: this.devices },
-            position: { top: '80px' }
+            position: { top: '60px' }
         });
         dialogRef.afterClosed().subscribe(result => {
             if (result) {

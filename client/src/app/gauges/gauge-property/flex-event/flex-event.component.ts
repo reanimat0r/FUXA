@@ -1,6 +1,6 @@
 import { Component, OnInit, Input } from '@angular/core';
 
-import { GaugeProperty, GaugeEvent, GaugeEventType, GaugeEventActionType, View } from '../../../_models/hmi';
+import { GaugeSettings, GaugeProperty, GaugeEvent, GaugeEventType, GaugeEventActionType, View } from '../../../_models/hmi';
 
 @Component({
     selector: 'flex-event',
@@ -11,18 +11,27 @@ export class FlexEventComponent implements OnInit {
 
     @Input() property: GaugeProperty;
     @Input() views: View[];
+    @Input() inputs: GaugeSettings[];
+    @Input() data: any;
 
     events: GaugeEvent[];
     eventType: any;
     actionType: any;
 
-    constructor() { }
+    constructor() {
+    }
 
     ngOnInit() {
         this.eventType = GaugeEventType;
         this.actionType = GaugeEventActionType;
         if (this.property) {
             this.events = this.property.events;
+            // compatibility with <= 1.0.4
+            this.events.forEach(element => {
+                if (!element.actoptions) {
+                    element.actoptions = {};
+                }
+            });
         }
         if (!this.events || this.events.length <= 0) {
             this.onAddEvent();
@@ -52,8 +61,10 @@ export class FlexEventComponent implements OnInit {
 
     withDestination(action) {
         let a = Object.keys(this.actionType).indexOf(action);
-        let b = Object.values(this.actionType).indexOf(GaugeEventActionType.onSetValue);
-        return (a >= 0 && a != b) ? true : false;
+        let b = Object.values(this.actionType).indexOf(GaugeEventActionType.onpage);
+        let c = Object.values(this.actionType).indexOf(GaugeEventActionType.onwindow);
+        let d = Object.values(this.actionType).indexOf(GaugeEventActionType.ondialog);
+        return (a === b || a === c || a === d) ? true : false;
     }
 
     withSetValue(action) {
@@ -62,6 +73,31 @@ export class FlexEventComponent implements OnInit {
         return (a === b) ? true : false;
     }
 
+    withSetInput(action) {
+        let a = Object.keys(this.actionType).indexOf(action);
+        let b = Object.values(this.actionType).indexOf(GaugeEventActionType.onSetInput);
+        return (a === b) ? true : false;
+    }
+
+    withAddress(action) {
+        let a = Object.keys(this.actionType).indexOf(action);
+        let b = Object.values(this.actionType).indexOf(GaugeEventActionType.oniframe);
+        let c = Object.values(this.actionType).indexOf(GaugeEventActionType.oncard);
+        return (a === b || a === c) ? true : false;
+    }
+
+    withScale(action) {
+        let a = Object.keys(this.actionType).indexOf(action);
+        let b = Object.values(this.actionType).indexOf(GaugeEventActionType.oniframe);
+        return (a === b) ? true : false;
+    }
+
+    setVariable(index, event) {
+        this.events[index].actoptions['variableSrc'] = event.variableSrc;
+        this.events[index].actoptions['variableId'] = event.variableId;
+        this.events[index].actoptions['variable'] = event.variable;
+    }
+    
     private addEvent(ge: GaugeEvent) {
         if (!this.events) {
             this.events = [];

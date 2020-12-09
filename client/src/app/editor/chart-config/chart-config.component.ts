@@ -33,11 +33,6 @@ export class ChartConfigComponent implements OnInit {
         }
 
     ngOnInit() {
-        // this.data = {
-        //     charts: [{ id: 'My chart A', name: 'My chart A', lines: [{ device: 'a', id: 'ab', name: 'aB' }] },
-        //              { id: 'My chart B', name: 'My chart B', lines: []}],
-        //     devices: [{ id: 'a', name: 'Device A', tags: [{ id: 'aa', name: 'aA' }, { id: 'ab', name: 'aB' }, { id: 'ac', name: 'aC' }]},
-        //         { id: 'b', name: 'Device B', tags: [{ id: 'ba', name: 'bA' }, { id: 'bb', name: 'bB' }, { id: 'bc', name: 'bC' }, { id: 'bd', name: 'bD' }]}] };
     }
 
     onNoClick(): void {
@@ -50,11 +45,8 @@ export class ChartConfigComponent implements OnInit {
 
     editChart(chart) {
         let dialogRef = this.dialog.open(DialogListItem, {
-            // minWidth: '700px',
-            // minHeight: '700px',
-            panelClass: 'dialog-property',
-            data: { name: (chart) ? chart.name : '' },
-            position: { top: '80px' }
+            position: { top: '60px' },
+            data: { name: (chart) ? chart.name : '' }
         });
         dialogRef.afterClosed().subscribe(result => {
             if (result && result.name && result.name.length > 0) {
@@ -192,13 +184,21 @@ export class ChartConfigComponent implements OnInit {
         }
     }
 
+    getTagLabel(tag) {
+        if (tag.label) {
+            return tag.label;
+        } else {
+            return tag.name;
+        }
+    }
+
     getDeviceTagName(tag) {
         let devices = this.data.devices.filter(x => x.name === tag.device);
         if (devices && devices.length > 0) {
             let tags = devices[0].tags;
             for (let i = 0; i < tags.length; i++) {
                 if (tag.id === tags[i].id) {
-                    return tags[i].name;
+                    return this.getTagLabel(tags[i]);
                 }
             }
         }

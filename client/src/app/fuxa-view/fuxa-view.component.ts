@@ -2,9 +2,10 @@ import { Component, OnInit, AfterViewInit, Input, ViewContainerRef, ComponentFac
 import { ViewChild, ElementRef } from '@angular/core';
 import { Subscription } from "rxjs";
 
-import { Hmi, View, GaugeSettings, Event, GaugeEventActionType, GaugeStatus } from '../_models/hmi';
+import { Hmi, View, GaugeSettings, Event, GaugeEventActionType, GaugeStatus, GaugeEvent } from '../_models/hmi';
 import { GaugesManager } from '../gauges/gauges.component';
 import { isUndefined } from 'util';
+import { Utils } from '../_helpers/utils';
 
 declare var SVG: any;
 
@@ -18,16 +19,19 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 	@Input() id: string;
 	@Input() view: View;
 	@Input() hmi: Hmi;
+	@Input() child: boolean = false;;
 	@Input() gaugesManager: GaugesManager;        // gauges.component
 	@Input() parentcards: CardModel[];
+	@Output() onclose = new EventEmitter();
 
 	@ViewChild('dataContainer') dataContainer: ElementRef;
 
 	cards: CardModel[] = [];
+	iframes: CardModel[] = [];
 	dialog: DialogModalModel;
-    mapGaugeStatus = {};
-
-
+	mapGaugeStatus = {};
+	
+	
 	private subscriptionOnChange: Subscription;
 
 	constructor(private el: ElementRef,
@@ -89,7 +93,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 			this.id = view.id;
 			this.view = view;
 			this.dataContainer.nativeElement.innerHTML = view.svgcontent.replace('<title>Layer 1</title>', '');;
-			if (view.profile.bkcolor) {
+			if (view.profile.bkcolor && this.child) {
 				this.dataContainer.nativeElement.style.backgroundColor = view.profile.bkcolor;
 			}
 		}
@@ -123,7 +127,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 							for (let i = 0; i < gas.length; i++) {
 								let gaugeSetting = gas[i];
 								let gaugeStatus = this.getGaugeStatus(gaugeSetting);
-								if (this.checkStatusVaue(gaugeStatus, sig)) {
+                                if (this.checkStatusVaue(gaugeSetting.id, gaugeStatus, sig)) {
 									let svgeles = this.getSvgElements(gaugeSetting.id);
 									for (let y = 0; y < svgeles.length; y++) {
 										this.gaugesManager.processValue(gaugeSetting, svgeles[y], sig, gaugeStatus);
@@ -157,45 +161,69 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 	 * @param gaugeStatus 
 	 * @param signal 
 	 */
-	private checkStatusVaue(gaugeStatus: GaugeStatus, signal: any) {
+	private checkStatusVaue(gaugeId: string, gaugeStatus: GaugeStatus, signal: any) {
 		let result = true;
-		if (gaugeStatus.onlyChange && gaugeStatus.variablesValue[signal.id] === signal.value) {
-			result = false;
-		}
+		if (gaugeStatus.onlyChange) {
+            if (gaugeStatus.takeValue) {
+                let value = this.gaugesManager.getGaugeValue(gaugeId);
+                gaugeStatus.variablesValue[signal.id] = value;
+            }
+            if (gaugeStatus.variablesValue[signal.id] === signal.value) {
+                result = false;
+            }
+        }
 		gaugeStatus.variablesValue[signal.id] = signal.value;
 		return result;
 	}
 
+	/**
+	 * bind the gauge svg element with click event
+	 * @param ga 
+	 */
 	private onBindClick(ga: GaugeSettings) {
 		let self = this;
 		let svgele = this.getSvgElement(ga.id);
 		if (svgele) {
 			svgele.click(function (ev) {
 				let event = self.gaugesManager.getBindClick(ga);
-				if (event && event.length > 0 && event[0].action && event[0].actparam) {
-					let actindex = Object.keys(GaugeEventActionType).indexOf(event[0].action);
-					if (Object.values(GaugeEventActionType).indexOf(GaugeEventActionType.onpage) === actindex) {
-						self.loadPage(ev, event[0].actparam);
-					} else if (Object.values(GaugeEventActionType).indexOf(GaugeEventActionType.onwindow) === actindex) {
-						self.onOpenCard(ga.id, ev, event[0].actparam);
-					} else if (Object.values(GaugeEventActionType).indexOf(GaugeEventActionType.ondialog) === actindex) {
-						self.openDialog(ev, event[0].actparam);
-					} else if (Object.values(GaugeEventActionType).indexOf(GaugeEventActionType.onSetValue) === actindex) {
-						self.onSetValue(ga, event[0].actparam);
-					}
-					// self.createComponent(event[0].name, ev.x, ev.y);
+				if (event && event.length > 0) {
+                    for (let i = 0; i < event.length; i++) {
+						let actindex = Object.keys(GaugeEventActionType).indexOf(event[i].action);
+						let eventTypes = Object.values(GaugeEventActionType);
+                        if (eventTypes.indexOf(GaugeEventActionType.onpage) === actindex) {
+                            self.loadPage(ev, event[i].actparam);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.onwindow) === actindex) {
+                            self.onOpenCard(ga.id, ev, event[i].actparam);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.ondialog) === actindex) {
+                            self.openDialog(ev, event[i].actparam);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.onSetValue) === actindex) {
+							self.onSetValue(ga, event[i]);
+						} else if (eventTypes.indexOf(GaugeEventActionType.onSetInput) === actindex) {
+                            self.onSetInput(ga, event[i]);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.oniframe) === actindex) {
+                            self.openIframe(ga.id, ev, event[i].actparam, event[i].actoptions);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.oncard) === actindex) {
+                            self.openWindow(ga.id, ev, event[i].actparam, event[i].actoptions);
+                        } else if (eventTypes.indexOf(GaugeEventActionType.onclose) === actindex) {
+                            self.onClose(ev);
+						}
+                    }
 				}
 			});
 		}
 	}
 
+	/**
+	 * bind the html input control with key-enter event and select control with change event
+	 * @param htmlevent 
+	 */
 	private onBindHtmlEvent(htmlevent: Event) {
 		let self = this;
 		// let htmlevent = this.getHtmlElement(ga.id);
 		if (htmlevent.type === 'key-enter') {
 			htmlevent.dom.onkeypress = function (ev) {
 				if (ev.keyCode === 13) {
-					console.log('click sig ' + htmlevent.dom.id + ' ' + htmlevent.dom.value);
+					console.log('enter sig ' + htmlevent.dom.id + ' ' + htmlevent.dom.value);
 					htmlevent.dbg = 'key pressed ' + htmlevent.dom.id + ' ' + htmlevent.dom.value;
 					htmlevent.id = htmlevent.dom.id;
 					htmlevent.value = htmlevent.dom.value;
@@ -297,6 +325,64 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 		}
 	}
 
+	openIframe(id: string, event: any, link: string, options: any) {
+		// check existing iframe
+		let iframe = null;
+		this.iframes.forEach(f => {
+			if (f.id === id) {
+				iframe = f;
+			}
+		});
+		if (iframe) {
+			return;
+		}
+		iframe = new CardModel(id);
+		iframe.x = event.clientX;
+		iframe.y = event.clientY;
+		iframe.width = 600;
+		iframe.height = 400;
+		iframe.scale = 1;
+		if (!isNaN(parseInt(options.width))) {
+			iframe.width = parseInt(options.width);
+		}
+		if (!isNaN(parseInt(options.height))) {
+			iframe.height = parseInt(options.height);
+		}
+		if (!isNaN(parseFloat(options.scale))) {
+			iframe.scale = parseFloat(options.scale);
+		}
+
+		iframe.link = link;
+		iframe.name = link;
+		this.iframes.push(iframe);
+		this.onIframeResizing(iframe, { size: { width: iframe.width, height: iframe.height } });
+	}
+
+	onIframeResizing(iframe: CardModel, event) {
+        iframe.width = event.size.width;
+        iframe.height = event.size.height;
+	}
+	
+	onCloseIframe(iframe: CardModel) {
+		this.iframes.forEach(f => {
+			if (f.id === iframe.id) {
+                this.iframes.splice(this.cards.indexOf(f), 1);
+			}
+		});
+	}
+
+	openWindow(id: string, event: any, link: string, options: any) {
+		let width = 600;
+		let height = 400;
+		if (!isNaN(parseInt(options.width))) {
+			width = parseInt(options.width);
+		}
+		if (!isNaN(parseInt(options.height))) {
+			height = parseInt(options.height);
+		}
+		window.open(link, '_blank', 'height=' + height + ',width=' + width + ',left=' + event.clientX + ',top='+ event.clientY);
+	}
+
 	onCloseCard(card: CardModel) {
 		this.cards.splice(this.cards.indexOf(card), 1);
 	}
@@ -305,10 +391,45 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 		delete this.dialog;
 	}
 
-	onSetValue(ga: GaugeSettings, paramValue) {
-		if (ga.property && ga.property.variableId) {
-			this.gaugesManager.putSignalValue(ga.property.variableId, paramValue);
+	private onClose($event) {
+		if (this.onclose) {
+			this.onclose.emit($event);
 		}
+		// if (this.dialog && this.dialog.view && this.dialog.view.name === viewref) {
+		// 	this.onCloseDialog();
+		// } else if (this.cards.find((c) => c.name === viewref)) {
+		// 	this.onCloseCard(this.cards.find((c) => c.name === viewref));
+		// }
+	}
+	
+    onSetValue(ga: GaugeSettings, event: GaugeEvent) {
+        if (event.actparam) {
+            if (event.actoptions && event.actoptions['variableId']) {
+                this.gaugesManager.putSignalValue(event.actoptions['variableId'], event.actparam);
+            } else if (ga.property && ga.property.variableId) {
+                this.gaugesManager.putSignalValue(ga.property.variableId, event.actparam);
+            }
+        }
+	}
+
+	onSetInput(ga: GaugeSettings, event: GaugeEvent) {
+        if (event.actparam) {
+			let ele = document.getElementById(event.actparam);
+			if (ele) {
+				let input = null;
+				for (let i = 0; i < GaugesManager.GaugeWithInput.length; i++) {
+					input = Utils.searchTreeStartWith(ele, GaugesManager.GaugeWithInput[i]);
+					if (input){ break; }
+				}
+				if (input && !isNaN(input.value)) {
+					if (event.actoptions && event.actoptions['variableId']) {
+						this.gaugesManager.putSignalValue(event.actoptions['variableId'], input.value);
+					} else if (ga.property && ga.property.variableId) {
+						this.gaugesManager.putSignalValue(ga.property.variableId, input.value);
+					}
+				}
+			}
+        }
 	}
 
 	getCardHeight(height) {
@@ -319,8 +440,12 @@ export class FuxaViewComponent implements OnInit, AfterViewInit {
 export class CardModel {
 	public id: string;
 	public name: string;
+	public link: string;
 	public x: number;
 	public y: number;
+    public scale: number;
+    public scaleX: number;
+	public scaleY: number;
 	public width: number;
 	public height: number;
 	public view: View;

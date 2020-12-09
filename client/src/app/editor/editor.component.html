@@ -17,8 +17,9 @@
                             <mat-icon aria-label="Select" *ngIf="!panelsState.panelView">expand_more</mat-icon>
                             <span>{{'editor.views' | translate}}</span> <!-- PROJECT VIEWS -->
                         </mat-panel-title>
-                        <mat-icon aria-label="Set" title="{{'editor.layout-settings' | translate}}" *ngIf="panelsState.panelView" class="leftbar-edit-btn" (click)="onLayoutProperty();$event.stopPropagation()">settings</mat-icon>
                         <mat-icon aria-label="Add" title="Add View" *ngIf="panelsState.panelView" class="leftbar-edit-btn" (click)="onAddView();$event.stopPropagation()">add</mat-icon>
+                        <mat-icon aria-label="Import" title="{{'editor.view-import' | translate}}" *ngIf="panelsState.panelView" class="leftbar-edit-btn" (click)="onImportView($event);$event.stopPropagation()">system_update_alt</mat-icon>
+                        <input type="file" #viewFileImportInput style="display: none" id="viewFileUpload" (click)="$event.stopPropagation()" (change)="onViewFileChangeListener($event)" accept=".fuxav" />
                     </mat-expansion-panel-header>
                     <div class="leftbar-panel view-panel">
                         <div *ngIf="hmi.views && hmi.views.length <= 0">
@@ -31,6 +32,8 @@
                                 <button mat-menu-item (click)="onDeleteView(item)">{{'editor.view-delete' | translate}}</button>
                                 <button mat-menu-item (click)="onRenameView(item)">{{'editor.view-rename' | translate}}</button>
                                 <button mat-menu-item (click)="onPropertyView(item)">{{'editor.view-property' | translate}}</button>
+                                <button mat-menu-item (click)="onCloneView(item)">{{'editor.view-clone' | translate}}</button>
+                                <button mat-menu-item (click)="onExportView(item)">{{'editor.view-export' | translate}}</button>
                             </mat-menu>
                         </div>
                     </div>
@@ -81,6 +84,51 @@
                         </div>
                     </div>
                 </mat-expansion-panel>
+                <!-- CONTROLS  -->
+                <mat-expansion-panel class="svg-workarea-leftbar-p" (opened)="panelsState.panelD=true;savePanelState()" (closed)="panelsState.panelD=false;savePanelState()" hideToggle="true" [expanded]="panelsState.panelD">
+                    <mat-expansion-panel-header class="svg-workarea-leftbar-h">
+                        <mat-panel-title>
+                            <mat-icon aria-label="Select" *ngIf="panelsState.panelD">expand_less</mat-icon>
+                            <mat-icon aria-label="Select" *ngIf="!panelsState.panelD">expand_more</mat-icon>
+                            <span>{{'editor.controls' | translate}}</span>
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <div id="__tools_left" class="leftbar-panel">
+                        <div class="svg-tool-button" title="{{'editor.controls-input' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_input')}" (click)="setMode('html_input')">
+                            <span class="icon-tool icon-editvalue"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-output' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('value')}" (click)="setMode('value')">
+                            <span class="icon-tool icon-value"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-button' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_button')}" (click)="setMode('html_button')">
+                            <span class="icon-tool icon-button"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-select' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_select')}" (click)="setMode('html_select')">
+                            <span class="icon-tool icon-selectvalue"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-progress' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('gauge_progress')}" (click)="setMode('gauge_progress')">
+                            <span class="icon-tool icon-progress-v"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-semaphore' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('gauge_semaphore')}" (click)="setMode('gauge_semaphore')">
+                            <span class="icon-tool icon-semaphore"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-chart' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_chart')}" (click)="setMode('html_chart')">
+                            <span class="icon-tool icon-chart"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-bag' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_bag')}" (click)="setMode('html_bag')">
+                            <span class="icon-tool icon-bag"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-pipe' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('pipe')}" (click)="setMode('pipe')">
+                            <span class="icon-tool icon-pipe"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-slider' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_slider')}" (click)="setMode('html_slider')">
+                            <span class="icon-tool icon-slider"></span>
+                        </div>
+                        <div class="svg-tool-button" title="{{'editor.controls-switch' | translate}}" [ngClass]="{'svg-tool-active': isModeActive('html_switch')}" (click)="setMode('html_switch')">
+                            <span class="icon-tool icon-switch"></span>
+                        </div>                        
+                    </div>
+                </mat-expansion-panel>                
                 <!-- SHAPES -->
                 <mat-expansion-panel *ngFor="let shGrp of shapesGrps" class="svg-workarea-leftbar-p" (opened)="panelsState[shGrp.name]=true;savePanelState()" (closed)="panelsState[shGrp.name]=false;savePanelState()" hideToggle="true" [expanded]="panelsState[shGrp.name]">
                     <mat-expansion-panel-header class="svg-workarea-leftbar-h">
@@ -93,48 +141,6 @@
                     <div id="__tools_left" class="leftbar-panel">
                         <div *ngFor="let shape of shGrp.shapes" style="margin-left: 3px;margin-right: 3px;" class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive(shape.name)}" (click)="setMode(shape.name)">
                             <span class="icon-tool" [style.backgroundImage]="'url(' + shape.ico + ')'"> </span>
-                        </div>
-                    </div>
-                </mat-expansion-panel>
-                <!-- CONTROLS  -->
-                <mat-expansion-panel class="svg-workarea-leftbar-p" (opened)="panelsState.panelD=true;savePanelState()" (closed)="panelsState.panelD=false;savePanelState()" hideToggle="true" [expanded]="panelsState.panelD">
-                    <mat-expansion-panel-header class="svg-workarea-leftbar-h">
-                        <mat-panel-title>
-                            <mat-icon aria-label="Select" *ngIf="panelsState.panelD">expand_less</mat-icon>
-                            <mat-icon aria-label="Select" *ngIf="!panelsState.panelD">expand_more</mat-icon>
-                            <span>{{'editor.controls' | translate}}</span>
-                        </mat-panel-title>
-                    </mat-expansion-panel-header>
-                    <div id="__tools_left" class="leftbar-panel">
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_input')}" (click)="setMode('html_input')">
-                            <span class="icon-tool icon-editvalue"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('value')}" (click)="setMode('value')">
-                            <span class="icon-tool icon-value"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_button')}" (click)="setMode('html_button')">
-                            <span class="icon-tool icon-button"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_select')}" (click)="setMode('html_select')">
-                            <span class="icon-tool icon-selectvalue"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('gauge_progress')}" (click)="setMode('gauge_progress')">
-                            <span class="icon-tool icon-progress-v"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('gauge_semaphore')}" (click)="setMode('gauge_semaphore')">
-                            <span class="icon-tool icon-semaphore"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_chart')}" (click)="setMode('html_chart')">
-                            <span class="icon-tool icon-chart"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_bag')}" (click)="setMode('html_bag')">
-                            <span class="icon-tool icon-bag"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('pipe')}" (click)="setMode('pipe')">
-                            <span class="icon-tool icon-pipe"></span>
-                        </div>
-                        <div class="svg-tool-button" [ngClass]="{'svg-tool-active': isModeActive('html_slider')}" (click)="setMode('html_slider')">
-                            <span class="icon-tool icon-slider"></span>
                         </div>
                     </div>
                 </mat-expansion-panel>
@@ -296,11 +302,7 @@
                                 <div class="svg-property">
                                     <span>{{'editor.transform-fontfamily' | translate}}</span>
                                     <select class="font-family" id="font_family" #fontfamily (change)="onFontFamilyChange(fontfamily.value)">
-                                        <option style="font-family:serif">{{'editor.transform-font-serif' | translate}}</option>
-                                        <option style="font-family:sans-serif">{{'editor.transform-font-sansserif' | translate}}</option>
-                                        <option style="font-family:cursive">{{'editor.transform-font-cursive' | translate}}</option>
-                                        <option style="font-family:fantasy">{{'editor.transform-font-fantasy' | translate}}</option>
-                                        <option style="font-family:monospace">{{'editor.transform-font-monospace' | translate}}</option>
+                                        <option *ngFor="let font of fonts" [style.fontFamily]="font" [value]="font">{{font}}</option>
                                     </select>
                                 </div>
 
@@ -647,6 +649,14 @@
                             <mat-icon>vertical_align_bottom</mat-icon>
                         </button>
                     </div>
+                    <div id="threemoreselected_panel">
+                        <button mat-button id="tool_dividevertical" title="{{'editor.tools-dividevertical-title' | translate}}" class="main-btn">
+                            <mat-icon>format_line_spacing</mat-icon>
+                        </button>
+                        <button mat-button id="tool_dividehorizontal" title="{{'editor.tools-dividehorizontal-title' | translate}}" class="main-btn">
+                            <mat-icon style="transform-origin: center center;transform: rotate(90deg);">format_line_spacing</mat-icon>
+                        </button>
+                    </div>
                     <div id="g_panel">
                         <button mat-button id="tool_ungroup" title="{{'editor.tools-ungroup-title' | translate}}" class="main-btn">
                             <span class="ungroup"></span>
@@ -783,9 +793,10 @@
                     <div class="zoom-menu" title="{{'editor.tools-zoomlevel-title' | translate}}">
                         <div class="zoom-value">
                             <input id="zoom" size="3" value="100" type="text" #zoomValue hidden />
-                            <span id="zoomLabel">{{zoomValue.value}} %</span>
-                            <div id="zoom_dropdown" class="dropdown selection">
-                                <button>O
+                            <!-- <span id="zoomLabel">{{zoomValue.value}} %</span> -->
+                            <div id="zoom_dropdown" class="dropdown selection" style="margin-top: 0px; margin-bottom: 0px;margin-right: 0px;">
+                                <button style="margin-top: 2px; width: 80px;cursor: pointer; font-size: 12px;">
+                                    {{zoomValue.value}} %
                                 </button>
                                 <ul>
                                     <li>1000%</li>

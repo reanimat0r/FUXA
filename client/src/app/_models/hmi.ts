@@ -22,6 +22,8 @@ export class LayoutSettings {
     start: string = '';
     navigation: NavigationSettings = new NavigationSettings();
     header: HeaderSettings = new HeaderSettings();
+    showdev: boolean = true;
+    zoom: ZoomModeType;
 }
 
 export class NavigationSettings {
@@ -59,7 +61,22 @@ export class NaviItem {
 }
 
 export class HeaderSettings {
+    title: string;
+    alarms: NotificationModeType;
+    infos: NotificationModeType;
+    bkcolor: string;
+    fgcolor: string;
+}
 
+export enum NotificationModeType {
+    hide = 'item.notifymode-hide',
+    fix = 'item.notifymode-fix',
+    float = 'item.notifymode-float',
+}
+
+export enum ZoomModeType {
+    disabled = 'item.zoommode-disabled',
+    enabled = 'item.zoommode-enabled',
 }
 
 export class DocProfile {
@@ -93,12 +110,14 @@ export class GaugeProperty {
     events: GaugeEvent[] = [];
     actions: GaugeAction[] = [];
     options: any;
+    readonly: boolean;
 }
 
 export class GaugeEvent {
     type: string;
     action: string;
     actparam: string;
+    actoptions = {};
 }
 
 export class GaugeAction {
@@ -111,7 +130,8 @@ export class GaugeAction {
 
 export class GaugeStatus {
     variablesValue = {};
-    onlyChange = false;
+    onlyChange = false;         // to process value only by change 
+    takeValue = false;          // to process value by check change with gauge value
     actionRef: any;
 }
 
@@ -121,9 +141,13 @@ export enum GaugeEventType {
 
 export enum GaugeEventActionType {
     onpage = 'Open Page',
-    onwindow = 'Open Window',
+    onwindow = 'Open Card',
     ondialog = 'Open Dialog',
+    oniframe = 'Open iframe',
+    oncard = 'Open Window',     // wrong name exchange with 'onwindow'
     onSetValue = 'Set Value',
+    onSetInput = 'Set from Input',
+    onclose = 'Close',
 }
 
 export class GaugeRangeProperty {
@@ -133,6 +157,12 @@ export class GaugeRangeProperty {
     color: string;
     type: any;
     style: any;
+}
+
+export class GaugeChartProperty {
+    id: string;
+    type: string;
+    options: any;
 }
 
 export class Variable {

@@ -6,6 +6,7 @@ import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material';
 import { environment } from '../../environments/environment';
 
 import { ChartConfigComponent } from '../editor/chart-config/chart-config.component';
+import { LayoutPropertyComponent } from '../editor/layout-property/layout-property.component';
 
 import { ProjectService } from '../_services/project.service';
 import { HelpData } from '../_models/hmi';
@@ -24,8 +25,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
     @ViewChild('tutorial') tutorial: TutorialComponent;
     @ViewChild('fileImportInput') fileImportInput: any;
 
-    ineditor: boolean = false;
-    winele: boolean = false;
+    ineditor = false;
+    savededitor = false;
+    winele = false;
     private subscriptionShowHelp: Subscription;
     
     constructor(private router: Router,
@@ -35,7 +37,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
         this.router.events.subscribe(()=> {
             this.ineditor = (this.router.url.indexOf('editor') >= 0 ||  this.router.url.indexOf('device') >= 0 ||
-            this.router.url.indexOf('users') >= 0) ? true : false;
+            this.router.url.indexOf('users') >= 0 || this.router.url.indexOf('text') >= 0 || this.router.url.indexOf('messages') >= 0) ? true : false;
+            this.savededitor = (this.router.url.indexOf('device') >= 0 || this.router.url.indexOf('users') >= 0 || 
+                                this.router.url.indexOf('text') >= 0 || this.router.url.indexOf('messages') >= 0) ? true : false;
         });
     }
 
@@ -62,13 +66,37 @@ export class HeaderComponent implements OnInit, OnDestroy {
         let chartscopy = JSON.parse(JSON.stringify(this.projectService.getCharts()));
         let devices = this.projectService.getDevices();
         let dialogRef = this.dialog.open(ChartConfigComponent, {
-            minWidth: '900px',
+            position: { top: '60px' },
             data: { charts: chartscopy, devices: devices }
         });
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
                 this.projectService.setCharts(result.charts);
+            }
+        });
+    }
+
+    /**
+     * edit the layout property of views: menu, header
+     */
+    onLayoutConfig() {
+        let templayout = null;
+        let hmi = this.projectService.getHmi();
+        if (hmi.layout) {
+            templayout = JSON.parse(JSON.stringify(hmi.layout));
+        }
+        if (templayout && templayout.showdev !== false) {
+			templayout.showdev = true;
+		}
+        let dialogRef = this.dialog.open(LayoutPropertyComponent, {
+            position: { top: '60px' },
+            data: { layout: templayout, views: hmi.views }
+        });
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                hmi.layout = JSON.parse(JSON.stringify(result.layout));
+                this.projectService.setLayout(hmi.layout);
             }
         });
     }
@@ -90,7 +118,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
     showInfo() {
         let dialogRef = this.dialog.open(DialogInfo, {
-            minWidth: '250px',
             data: { name: 'Info', version: environment.version }
         });
 
@@ -121,7 +148,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
      */
     onSaveProjectAs() {
         try {
-            this.projectService.saveProject(true);
+            if (this.savededitor) {
+                this.projectService.saveAs();
+            } else {
+                this.projectService.saveProject(true);
+            }
         } catch (e) {
 
         }

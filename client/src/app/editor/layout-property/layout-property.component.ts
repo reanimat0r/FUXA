@@ -1,41 +1,31 @@
 import { Component, OnInit, Inject, ViewChild } from '@angular/core';
-import { DndDropEvent, DropEffect } from 'ngx-drag-drop';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material';
 import { TranslateService } from '@ngx-translate/core';
 
 import { SelOptionsComponent } from '../../gui-helpers/sel-options/sel-options.component';
 
-import { LayoutSettings, NaviModeType, NaviItem, NaviItemType } from '../../_models/hmi';
+import { LayoutSettings, NaviModeType, NaviItem, NaviItemType, NotificationModeType, ZoomModeType } from '../../_models/hmi';
 import { Define } from '../../_helpers/define';
 import { UserGroups } from '../../_models/user';
+import { Utils } from '../../_helpers/utils';
 
 @Component({
     selector: 'app-layout-property',
     templateUrl: './layout-property.component.html',
-    styleUrls: ['./layout-property.component.css']
+    styleUrls: ['./layout-property.component.scss']
 })
 export class LayoutPropertyComponent implements OnInit {
 
     draggableListLeft = [];
     layout: any;
-    horizontalLayoutActive: boolean = false;
-    private currentDraggableEvent: DragEvent;
-    private readonly verticalLayout = {
-        container: "row",
-        list: "column",
-        dndHorizontal: false
-    };
-    private readonly horizontalLayout = {
-        container: "row",
-        list: "row",
-        dndHorizontal: true
-    };
-
+    defaultColor = Utils.defaultColor;
 
     startView: string;
     sideMode: string;
     navMode: any;
     navType: any;
+    notifyMode: any;
+    zoomMode: any;
 
     constructor(@Inject(MAT_DIALOG_DATA) public data: any,
         public dialog: MatDialog,
@@ -50,18 +40,25 @@ export class LayoutPropertyComponent implements OnInit {
             data.layout.navigation.items = [];
         }
         this.draggableListLeft = data.layout.navigation.items;
-        this.setHorizontalLayout(this.horizontalLayoutActive);
     }
 
     ngOnInit() {
         this.navMode = NaviModeType;
         this.navType = NaviItemType;
+        this.notifyMode = NotificationModeType;
+        this.zoomMode = ZoomModeType;
 
         Object.keys(this.navMode).forEach(key => {
             this.translateService.get(this.navMode[key]).subscribe((txt: string) => {this.navMode[key] = txt});
         });
         Object.keys(this.navType).forEach(key => {
             this.translateService.get(this.navType[key]).subscribe((txt: string) => {this.navType[key] = txt});
+        });
+        Object.keys(this.notifyMode).forEach(key => {
+            this.translateService.get(this.notifyMode[key]).subscribe((txt: string) => {this.notifyMode[key] = txt});
+        });
+        Object.keys(this.zoomMode).forEach(key => {
+            this.translateService.get(this.zoomMode[key]).subscribe((txt: string) => {this.zoomMode[key] = txt});
         });
     }
 
@@ -73,9 +70,8 @@ export class LayoutPropertyComponent implements OnInit {
         let views = JSON.parse(JSON.stringify(this.data.views));
         views.unshift({id: '', name: ''});
         let dialogRef = this.dialog.open(DialogMenuItem, {
-            minWidth: '350px',
-            data: { item: eitem, views: views, permission: eitem.permission },
-            position: { top: '90px' }
+            position: { top: '60px' },
+            data: { item: eitem, views: views, permission: eitem.permission }
         });
 
         dialogRef.afterClosed().subscribe(result => {
@@ -110,34 +106,11 @@ export class LayoutPropertyComponent implements OnInit {
         this.draggableListLeft.splice(index, 1);
     }
 
-    onDragStart(event: DragEvent) {
-
-        this.currentDraggableEvent = event;
-    }
-
-    setHorizontalLayout(horizontalLayoutActive: boolean) {
-        this.layout = (horizontalLayoutActive) ? this.horizontalLayout : this.verticalLayout;
-    }
-
-    onDragged(item: any, list: any[], effect: DropEffect) {
-        if (effect === "move") {
-            const index = list.indexOf(item);
-            list.splice(index, 1);
-        }
-    }
-
-    onDragEnd(event: DragEvent) {
-
-        this.currentDraggableEvent = event;
-    }
-
-    onDrop(event: DndDropEvent, list?: any[]) {
-        if (list && (event.dropEffect === "copy" || event.dropEffect === "move")) {
-            let index = event.index;
-            if (typeof index === "undefined") {
-                index = list.length;
-            }
-            list.splice(index, 0, event.data);
+    onMoveMenuItem(index, direction) {
+        if (direction === 'top' && index > 0) {
+            this.draggableListLeft.splice(index - 1, 0, this.draggableListLeft.splice(index, 1)[0]);
+        } else if (direction === 'bottom' && index < this.draggableListLeft.length) {
+            this.draggableListLeft.splice(index + 1, 0, this.draggableListLeft.splice(index, 1)[0]);
         }
     }
 

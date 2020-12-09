@@ -7,9 +7,7 @@ FUXA is a web-based Process Visualization (SCADA/HMI) software. With FUXA you ca
 ![fuxa ani](/screenshot/fuxa-ani.gif)
 
 ## Features
-- Modbus RTU/TCP communication protocols
-- S7 Protocol to communicate with Siemens CPU
-- A client for OPC UA connectivity
+- Devices connectivity with Modbus RTU/TCP, Siemens S7 Protocol, OPC-UA, BACnet IP
 - SCADA/HMI Web-Editor - Engineering and Design completely web-based
 - Cross-Platform Full-Stack - Backend with NodeJs and Frontend with Web technologies (HTML5, CSS, Javascript, Angular, SVG)
 
@@ -17,9 +15,9 @@ FUXA is a web-based Process Visualization (SCADA/HMI) software. With FUXA you ca
 Here is a [live demo](https://frangoteam.github.io) example of FUXA editor.
 
 ## Installing and Running
-FUXA is developed with NodeJS (backend) and Angular (frontend). You can use the [released](/../../releases) Windows desktop version build with Electron framework or follow the installation.
+FUXA is developed with NodeJS (backend) and Angular (frontend).
 
-You need to have installed [Node](https://nodejs.org) (Version 10.17) and NPM (Version 6.11). You need Python 2.7 (in Windows add to Environment Variable PATH) why some packages must be compiled from the source.
+You need to have installed [Node](https://nodejs.org) (Version 10 or 12) and NPM (Version >=6.11).
 
 Clone this repository or download it
 ```
@@ -38,14 +36,7 @@ npm start
 Open up a browser (better Chrome) and navigate to http://localhost:1881
 
 ## Usage
-First define your Device and bind the Variable or Signals
-![fuxa device](/screenshot/fuxa-device.gif)
-
-Then design your HMI pages with the SVG editor
-![fuxa hmi](/screenshot/fuxa-hmi.gif)
-
-Now you can test by changing the values to PLC or manually with the testbench
-![fuxa test](/screenshot/fuxa-test.gif)
+Look the guide in [wiki](https://github.com/frangoteam/FUXA/wiki) pages
 
 ## To Debug (Full Stack)
 Install and start to serve the frontend
@@ -64,15 +55,17 @@ In vscode: Debug ‘Server & Client’
 Build the frontend for production
 ```
 cd ./client
-ng build --env=prod
+ng build --prod
 ```
 
 ## Test
 Tested with:
+- Ubuntu 16.04 LTS, nodejs version 10.22.0, npm version 6.14.6
 - Windows 10, nodejs version 10.8.0, npm version 6.2.0
 - Raspberry PI (Raspbian 2018-11-13, Kernel 4.14), nodejs version 10.15.3, npm version 6.4.1
 
-## Issues
+## Contributing
+Any contributions you make are greatly appreciated.
 If you identify any errors, or have an idea for an improvement, please open an [issue](/../../issues).
 
 ## Let us know!
@@ -83,6 +76,7 @@ We’d be really happy if you send us your own shapes in order to collect a libr
 - [node-snap7](https://github.com/mathiask88/node-snap7)
 - [node-opcua](https://github.com/node-opcua/node-opcua)
 - [node-modbus-serial](https://github.com/yaacov/node-modbus-serial)
+- [node-bacstack](https://github.com/fh1ch/node-bacstack)
 
 ## License
 MIT.

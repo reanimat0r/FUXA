@@ -14,20 +14,21 @@ export class GaugeOptions {
     gradientType: string = '';
     strokeColor?: string = '#e0e0e0';
     pointer? = {
-        length: 0.8,
+        length: 0.5,
         strokeWidth: 0.035,
         iconScale: 1.0,
         color: '#000000'
     };
-    angle: number = 0.15;
-    lineWidth: number = 0.44;
-    radiusScale: number = 1.0;
+    angle: number = 0;
+    lineWidth: number = 0.3;
+    radiusScale: number = 0.6;
     fontSize: number = 18;
-    textFilePosition: number = 5;
+    fontFamily: 'Sans-serif';
+    textFilePosition: number = 20;
     limitMax: boolean = false;
     limitMin: boolean = false;
     highDpiSupport: boolean = true;
-
+    backgroundColor: string = 'rgba(255, 255, 255, 0)';
     shadowColor?: string = '#d5d5d5';
     
     fractionDigits: number = 0;

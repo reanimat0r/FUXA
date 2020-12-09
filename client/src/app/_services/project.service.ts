@@ -6,6 +6,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Hmi, View, LayoutSettings } from '../_models/hmi';
 import { Chart } from '../_models/chart';
+import { Alarm } from '../_models/alarm';
+import { Text } from '../_models/text';
 import { Device, DeviceType, DeviceNetProperty } from '../_models/device';
 import { EndPointApi } from '../_helpers/endpointapi';
 import { ToastrService } from 'ngx-toastr';
@@ -289,7 +291,26 @@ export class ProjectService {
         let header = new HttpHeaders({ 'Content-Type': 'application/json' });
         let params = { query: 'security', name: name, value: value };
         return this.http.post<any>(this.endPointConfig + '/api/device', { headers: header, params: params });
-    } 
+    }
+
+    getAlarmsValues(): Observable<any> {
+        return this.http.get<any>(this.endPointConfig + '/api/alarms', {});
+    }
+    
+    setAlarmAck(name: string): Observable<any> {
+        return new Observable((observer) => {
+            let header = new HttpHeaders({ 'Content-Type': 'application/json' });
+            this.http.post<any>(this.endPointConfig + '/api/alarmack', { headers: header, params: name }).subscribe(result => {
+                observer.next();
+            }, err => {
+                observer.error(err);
+            });                
+        });
+
+        // let header = new HttpHeaders({ 'Content-Type': 'application/json' });
+        // let params = { alarmname: name };
+        // return this.http.post<string>(this.endPointConfig + '/api/alarmack', { headers: header, params: name });
+    }
     //#endregion
 
     //#region Hmi, Layout resource json struct
@@ -342,6 +363,129 @@ export class ProjectService {
                 this.notifySaveError(err);
             });
         }
+    }
+    //#endregion
+
+    //#region Alarms resource
+    /**
+     * get alarms resource
+     */
+    getAlarms() {
+        return (this.projectData) ? (this.projectData.alarms) ? this.projectData.alarms : [] : null;
+    }
+
+    /**
+     * save the alarm to project
+     * @param text
+     */
+    setAlarm(alarm: Alarm, old: Alarm) {
+        return new Observable((observer) => {
+            if (!this.projectData.alarms) {
+                this.projectData.alarms = [];
+            }
+            let exist = this.projectData.alarms.find(tx => tx.name === alarm.name);
+            if (exist) {
+                exist.property = alarm.property;
+                exist.highhigh = alarm.highhigh;
+                exist.high = alarm.high;
+                exist.low = alarm.low;
+                exist.info = alarm.info;
+                exist.value = alarm.value;
+            } else {
+                this.projectData.alarms.push(alarm);
+            }
+            this.setServerProjectData(ProjectDataCmdType.SetAlarm, alarm).subscribe(result => {
+                if (old && old.name && old.name !== alarm.name) {
+                    this.removeAlarm(old).subscribe(result => {
+                        observer.next();
+                    });
+                } else {
+                    observer.next();
+                }
+            }, err => {
+                console.log(err);
+                this.notifySaveError(err);
+                observer.error(err);
+            });
+        });
+    }
+
+    /**
+     * remove the text from project
+     * @param text 
+     */
+    removeAlarm(alarm: Alarm) {
+        return new Observable((observer) => {
+            if (this.projectData.alarms) {
+                for (let i = 0; i < this.projectData.alarms.length; i++) {
+                    if (this.projectData.alarms[i].name === alarm.name) {
+                        this.projectData.alarms.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+            this.setServerProjectData(ProjectDataCmdType.DelAlarm, alarm).subscribe(result => {
+                observer.next();
+            }, err => {
+                console.log(err);
+                this.notifySaveError(err);
+                observer.error(err);
+            });
+        });
+    }
+    //#endregion
+
+    //#region Texts resource
+    /**
+     * get texts resource
+     */
+    getTexts() {
+        return (this.projectData) ? (this.projectData.texts) ? this.projectData.texts : [] : null;
+    }
+
+    /**
+     * save the text to project
+     * @param text
+     */
+    setText(text: Text, old: Text) {
+        if (!this.projectData.texts) {
+            this.projectData.texts = [];
+        }
+        let exist = this.projectData.texts.find(tx => tx.name === text.name);
+        if (exist) {
+            exist.group = text.group;
+            exist.value = text.value;
+        } else {
+            this.projectData.texts.push(text);
+        }
+        this.setServerProjectData(ProjectDataCmdType.SetText, text).subscribe(result => {
+            if (old && old.name && old.name !== text.name) {
+                this.removeText(old);
+            }
+        }, err => {
+            console.log(err);
+            this.notifySaveError(err);
+        });                
+    }
+
+    /**
+     * remove the text from project
+     * @param text 
+     */
+    removeText(text: Text) {
+        if (this.projectData.texts) {
+            for (let i = 0; i < this.projectData.texts.length; i++) {
+                if (this.projectData.texts[i].name === text.name) {
+                    this.projectData.texts.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        this.setServerProjectData(ProjectDataCmdType.DelText, text).subscribe(result => {
+        }, err => {
+            console.log(err);
+            this.notifySaveError(err);
+        });           
     }
     //#endregion
 
@@ -417,6 +561,10 @@ export class ProjectService {
             }
         });
         return result;
+    }
+
+    getDeviceFromSource(source: string): any {
+        return this.projectData.devices[source];
     }
 
     setDevices(devices: any, nosave?: boolean): boolean {
@@ -554,6 +702,8 @@ export class ProjectData {
     hmi: Hmi = new Hmi();
     devices = {};
     charts: Chart[] = [];
+    alarms: Alarm[] = [];
+    texts: Text[] = [];
 }
 
 export enum ProjectDataCmdType {
@@ -563,6 +713,10 @@ export enum ProjectDataCmdType {
     DelView = 'del-view',
     HmiLayout = 'layout',
     Charts = 'charts',
+    SetText = 'set-text',
+    DelText = 'del-text',
+    SetAlarm = 'set-alarm',
+    DelAlarm = 'del-alarm',
 }
 
 export class ServerSettings {

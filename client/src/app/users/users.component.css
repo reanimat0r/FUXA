@@ -8,6 +8,8 @@
     color: rgba(255,255,255,1);
     height: 40px;
     width: 100%;
+    text-align: center;
+    line-height: 40px;;
 }
 
 .work-panel {
@@ -18,10 +20,21 @@
     bottom: 0px;
 }
 
+.container {
+    display: flex;
+    flex-direction: column;
+    min-width: 300px;
+    position: absolute;
+    bottom: 0px;
+    top: 0px;
+    left:0px;
+    right:0px;
+    background-color: white;
+}
+
 .mat-table {
     overflow: auto;
-    /* margin: 5px; */
-    /* max-height: 500px; */
+    min-width: 1560px;
 }
   
 .mat-header-cell.mat-sort-header-sorted {
@@ -32,7 +45,7 @@
     top: 0;
     position: sticky;
     z-index: 1;
-    background-color: rgba(0,0,0,0.7);
+    background-color: rgb(58, 58, 58);
     color: white;
 }
 .mat-header-cell {

@@ -7,7 +7,6 @@ import { HmiService } from '../_services/hmi.service';
 import { ChartRangeType } from '../_models/chart';
 
 import { GaugeBaseComponent } from './gauge-base/gauge-base.component';
-import { SwitchComponent } from './switch/switch.component';
 import { GaugeSettings, GaugeProperty, Variable, Event, GaugeEvent, GaugeEventType, GaugeStatus } from '../_models/hmi';
 import { ValueComponent } from './controls/value/value.component';
 import { GaugePropertyComponent, GaugeDialogType } from './gauge-property/gauge-property.component';
@@ -16,13 +15,14 @@ import { HtmlButtonComponent } from './controls/html-button/html-button.componen
 import { HtmlSelectComponent } from './controls/html-select/html-select.component';
 import { HtmlChartComponent } from './controls/html-chart/html-chart.component';
 import { HtmlBagComponent } from './controls/html-bag/html-bag.component';
+import { HtmlSwitchComponent } from './controls/html-switch/html-switch.component';
 import { GaugeProgressComponent } from './controls/gauge-progress/gauge-progress.component';
 import { GaugeSemaphoreComponent } from './controls/gauge-semaphore/gauge-semaphore.component';
 import { ShapesComponent } from './shapes/shapes.component';
 import { ProcEngComponent } from './shapes/proc-eng/proc-eng.component';
 import { ApeShapesComponent } from './shapes/ape-shapes/ape-shapes.component';
-import { PipeComponent } from './pipe/pipe.component';
-import { SliderComponent } from './slider/slider.component';
+import { PipeComponent } from './controls/pipe/pipe.component';
+import { SliderComponent } from './controls/slider/slider.component';
 
 import { WindowRef } from '../_helpers/windowref';
 import { Dictionary } from '../_helpers/dictionary';
@@ -53,15 +53,17 @@ export class GaugesManager {
     // list of gauges tags to speed up the check
     gaugesTags = [];
 
+    // list of gauges with input 
+    static GaugeWithInput = [HtmlInputComponent.prefix, HtmlSelectComponent.prefix, HtmlSwitchComponent.prefix];
     // list of gauges tags to check who as events like mouse click
     static GaugeWithEvents = [HtmlButtonComponent.TypeTag, GaugeSemaphoreComponent.TypeTag, ShapesComponent.TypeTag, ProcEngComponent.TypeTag, 
         ApeShapesComponent.TypeTag];
     // list of gauges tags to check who as events like mouse click
-    static GaugeWithActions = [ApeShapesComponent, PipeComponent];
+    static GaugeWithActions = [ApeShapesComponent, PipeComponent, ProcEngComponent, ShapesComponent];
     // list of gauges components
     static Gauges = [ValueComponent, HtmlInputComponent, HtmlButtonComponent, HtmlBagComponent,
         HtmlSelectComponent, HtmlChartComponent, GaugeProgressComponent, GaugeSemaphoreComponent, ShapesComponent, ProcEngComponent, ApeShapesComponent,
-        PipeComponent, SliderComponent];
+        PipeComponent, SliderComponent, HtmlSwitchComponent];
 
     constructor(private hmiService: HmiService,
         private winRef: WindowRef,
@@ -118,6 +120,9 @@ export class GaugesManager {
         if (!ga.type.startsWith(HtmlChartComponent.TypeTag)) {
             result.onlyChange = true;
         }
+        if (ga.type.startsWith(SliderComponent.TypeTag)) {
+            result.takeValue = true;
+        }
         return result;
     }
         
@@ -159,13 +164,15 @@ export class GaugesManager {
         } else if (ga.type.startsWith(HtmlButtonComponent.TypeTag)) {
             HtmlButtonComponent.initElement(ga);
         } else if (ga.type.startsWith(HtmlChartComponent.TypeTag)) {
-            HtmlChartComponent.detectChange(ga);
+            HtmlChartComponent.detectChange(ga, res, ref);
         } else if (ga.type.startsWith(HtmlBagComponent.TypeTag)) {
             this.mapGauges[ga.id] = HtmlBagComponent.detectChange(ga, res, ref);
         } else if (ga.type.startsWith(PipeComponent.TypeTag)) {
             return this.mapGauges[ga.id] = PipeComponent.detectChange(ga, res, this.winRef);
         } else if (ga.type.startsWith(SliderComponent.TypeTag)) {
             return this.mapGauges[ga.id] = SliderComponent.detectChange(ga, res, ref);
+        } else if (ga.type.startsWith(HtmlSwitchComponent.TypeTag)) {
+            return this.mapGauges[ga.id] = HtmlSwitchComponent.detectChange(ga, res, ref);
         }
         return false;
     }
@@ -268,7 +275,7 @@ export class GaugesManager {
      */
     checkElementToInit(ga: GaugeSettings) {
         if (ga.type.startsWith(HtmlSelectComponent.TypeTag)) {
-            return HtmlSelectComponent.initElement(ga);
+            return HtmlSelectComponent.initElement(ga, true);
         }
         return null;
     }
@@ -287,6 +294,12 @@ export class GaugesManager {
                     return;
                 }
             }
+        }
+    }
+
+    getGaugeValue(gaugeId: string) {
+        if (this.mapGauges[gaugeId] && this.mapGauges[gaugeId].currentValue) {
+            return this.mapGauges[gaugeId].currentValue();
         }
     }
 
@@ -367,6 +380,11 @@ export class GaugesManager {
             SliderComponent.bindEvents(ga, this.mapGauges[ga.id], (event) => {
                 self.putEvent(event);
             });
+        } else if (ga.type.startsWith(HtmlSwitchComponent.TypeTag)) {
+            let self = this;
+            HtmlSwitchComponent.bindEvents(ga, this.mapGauges[ga.id], (event) => {
+                self.putEvent(event);
+            });
         }
     }
 
@@ -399,6 +417,13 @@ export class GaugesManager {
                     Object.keys(this.memorySigGauges[sig.id]).forEach(k => {
                         if (k === ga.id && this.mapGauges[k]) {
                             SliderComponent.processValue(ga, svgele, sig, gaugeStatus, this.mapGauges[k]);
+                        }
+                    });
+                    break;
+                } else if (ga.type.startsWith(HtmlSwitchComponent.TypeTag)) {
+                    Object.keys(this.memorySigGauges[sig.id]).forEach(k => {
+                        if (k === ga.id && this.mapGauges[k]) {
+                            HtmlSwitchComponent.processValue(ga, svgele, sig, gaugeStatus, this.mapGauges[k]);
                         }
                     });
                     break;
@@ -508,6 +533,36 @@ export class GaugesManager {
         }
     }
 
+    
+    /**
+     * Return the default prefix of gauge name
+     * @param type 
+     */
+    static getPrefixGaugeName(type: string) {
+        if (type.startsWith(GaugeProgressComponent.TypeTag)) {
+            return 'progress_';
+        } else if (type.startsWith(HtmlButtonComponent.TypeTag)) {
+            return 'button_';
+        } else if (type.startsWith(HtmlInputComponent.TypeTag)) {
+            return 'input_';
+        } else if (type.startsWith(HtmlSelectComponent.TypeTag)) {
+            return 'select_';
+        } else if (type.startsWith(GaugeSemaphoreComponent.TypeTag)) {
+            return 'led_';
+        } else if (type.startsWith(SliderComponent.TypeTag)) {
+            return 'slider_';
+        } else if (type.startsWith(PipeComponent.TypeTag)) {
+            return 'pipe_';
+        } else if (type.startsWith(HtmlChartComponent.TypeTag)) {
+            return 'chart_';
+        } else if (type.startsWith(HtmlBagComponent.TypeTag)) {
+            return 'gauge_';
+        } else if (type.startsWith(HtmlSwitchComponent.TypeTag)) {
+            return 'switch_';
+        }
+        return 'shape_';
+    }
+
 	/**
 	 * initialize the gauge element found in svg, like ngx-dygraph, ngx-gauge
 	 * in svg is only a 'div' that have to be dynamic build and render from angular
@@ -535,7 +590,7 @@ export class GaugesManager {
             });
             let gauge: NgxDygraphsComponent = HtmlChartComponent.initElement(ga, res, ref, isview, chartRange);
             gauge.init();
-            if (ga.property) {
+            if (ga.property && ga.property.id) {
                 let chart = this.hmiService.getChart(ga.property.id)
                 chart.lines.forEach(line => {
                     let sigid = HmiService.toVariableId(line.device, line.id);
@@ -561,6 +616,17 @@ export class GaugesManager {
             return gauge;
         } else if (ga.type.startsWith(SliderComponent.TypeTag)) {
             let gauge: NgxNouisliderComponent = SliderComponent.initElement(ga, res, ref, isview);
+            this.mapGauges[ga.id] = gauge;
+            return gauge;
+        } else if (ga.type.startsWith(HtmlInputComponent.TypeTag)) {
+            HtmlInputComponent.initElement(ga, isview);
+        } else if (ga.type.startsWith(HtmlSelectComponent.TypeTag)) {
+            HtmlSelectComponent.initElement(ga, isview);
+        } else if (ga.type.startsWith(GaugeProgressComponent.TypeTag)) {
+            GaugeProgressComponent.initElement(ga);
+            return true;
+        } else if (ga.type.startsWith(HtmlSwitchComponent.TypeTag)) {
+            let gauge = HtmlSwitchComponent.initElement(ga, res, ref, isview);
             this.mapGauges[ga.id] = gauge;
             return gauge;
         }

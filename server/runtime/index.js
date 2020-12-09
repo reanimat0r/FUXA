@@ -8,12 +8,15 @@ var devices = require("./devices");
 var project = require("./project");
 var users = require("./users");
 var events = require("./events");
+var alarms = require("./alarms");
+var utils = require('./utils');
 const daqstorage = require('./storage/daqstorage');
 
 var apiDevice;
 var settings
 var logger;
 var io;
+var alarmsMgr;
 
 function init(_io, _api, _settings, log) {
     io = _io;
@@ -38,11 +41,18 @@ function init(_io, _api, _settings, log) {
     }).catch(function (err) {
         logger.error("runtime.failed-to-init project");
     });
+    alarmsMgr = alarms.create(runtime);
+    // alarmsMgr.init().then(result => {
+    //     logger.info("runtime init alarms successful!");
+    // }).catch(function (err) {
+    //     logger.error("runtime.failed-to-init alarms");
+    // });
     devices.init(runtime);
 
     events.on("project-device:change", updateDevice);
     events.on("device-value:changed", updateDeviceValues);      // event from devices (S7/OPCUA/...)
     events.on("device-status:changed", updateDeviceStatus);     // event from devices (S7/OPCUA/...)
+    events.on("alarms-status:changed", updateAlarmsStatus);     // event from alarmsMgr
 
     io.on('connection', (socket) => {
         logger.info('io client connected');
@@ -171,6 +181,34 @@ function init(_io, _api, _settings, log) {
                 logger.error('socket.on.daq-query: ' + err);
             }
         });
+        // client ask alarms status
+        socket.on('alarms-status', (message) => {
+            if (message === 'get') {
+                updateAlarmsStatus();
+            }
+        });
+        // client ask host interfaces
+        socket.on('host-interfaces', (message) => {
+            try {
+                if (message === 'get') {
+                    message = {};
+                    utils.getHostInterfaces().then(result => {
+                        message.result = result;
+                        io.emit("host-interfaces", message);
+                    }).catch(function (err) {
+                        logger.error('socket.on.host-interfaces: ' + err);
+                        message.error = err;
+                        io.emit("host-interfaces", message);
+                    });
+                } else {
+                    logger.error('socket.on.host-interfaces: wrong message');
+                    message.error = 'wrong message';
+                    io.emit("host-interfaces", message);
+                }
+            } catch (err) {
+                logger.error('socket.on.host-interfaces: ' + err);
+            }
+        });        
     });
 }
 
@@ -183,7 +221,14 @@ function start() {
                 // devices.woking = null;
                 resolve(true);
             }).catch(function (err) {
-                logger.error('runtime.failed-to-start: ' + err);
+                logger.error('runtime.failed-to-start-devices: ' + err);
+                reject();
+            });
+            // start alarms manager
+            alarmsMgr.start().then(function () {
+                resolve(true);
+            }).catch(function (err) {
+                logger.error('runtime.failed-to-start-alarms: ' + err);
                 reject();
             });
         }).catch(function (err) {
@@ -196,9 +241,12 @@ function start() {
 function stop() {
     return new Promise(function (resolve, reject) {
         devices.stop().then(function () {
-
         }).catch(function (err) {
-            logger.error('runtime.failed-to-stop: ' + err);
+            logger.error('runtime.failed-to-stop-devices: ' + err);
+        });
+        alarmsMgr.stop().then(function () {
+        }).catch(function (err) {
+            logger.error('runtime.failed-to-stop-alarms: ' + err);
         });
         resolve(true);
     });
@@ -209,6 +257,12 @@ function update(cmd, data) {
         try {
             if (cmd === project.ProjectDataCmdType.SetDevice) {
                 devices.updateDevice(data);
+                alarmsMgr.reset();
+            } else if (cmd === project.ProjectDataCmdType.DelDevice) {
+                devices.removeDevice(data);
+                alarmsMgr.reset();
+            } else if (cmd === project.ProjectDataCmdType.SetAlarm || cmd === project.ProjectDataCmdType.DelAlarm) {
+                alarmsMgr.reset();
             }
             resolve(true);
         } catch (err) {
@@ -222,10 +276,13 @@ function update(cmd, data) {
     });
 }
 
-function restart() {
+function restart(clear) {
     return new Promise(function (resolve, reject) {
         try {
             stop().then(function () {
+                if (clear) {
+                    alarmsMgr.clear();
+                }
                 logger.info('runtime.update-project: stopped!');
                 start().then(function () {
                     logger.info('runtime.update-project: start!');
@@ -279,6 +336,20 @@ function updateDeviceStatus(event) {
     }
 }
 
+/**
+ * Transmit the alarms status to all frontend
+ */
+function updateAlarmsStatus() {
+    try {
+        alarmsMgr.getAlarmsStatus().then(function (result) {
+            io.emit('alarms-status', result);
+        }).catch(function (err) {
+            logger.error('runtime.failed-to-update-alarms: ' + err);
+        });
+    } catch (err) {
+    }
+}
+
 var runtime = module.exports = {
     init: init,
     project: project,
@@ -291,7 +362,9 @@ var runtime = module.exports = {
     get io() { return io },
     get logger() { return logger },
     get settings() { return settings },
+    get devices() { return devices },
     get daqStorage() { return daqstorage },
+    get alarmsMgr() { return alarmsMgr },
     events: events,
 
 }

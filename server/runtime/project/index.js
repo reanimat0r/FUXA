@@ -54,7 +54,7 @@ function init(_settings, log) {
  */
 function load() {
     return new Promise(function (resolve, reject) {
-        data = { devices: {}, hmi: { views: [] } };
+        data = { devices: {}, hmi: { views: [] }, texts: [], alarms: [] };
         // load general data
         prjstorage.getSection(prjstorage.TableType.GENERAL).then(grows => {
             for (var ig = 0; ig < grows.length; ig++) {
@@ -78,7 +78,21 @@ function load() {
                             data.devices[drows[id].name] = JSON.parse(drows[id].value);
                         }
                     }
-                    resolve();
+                    // load texts
+                    getTexts().then(texts => {
+                        data.texts = texts;
+                        // load alarms
+                        getAlarms().then(alarms => {
+                            data.alarms = alarms;
+                            resolve();
+                        }).catch(function (err) {
+                            logger.error('project.prjstorage.failed-to-load ' + prjstorage.TableType.ALARMS + ': ' + err);
+                            reject(err);
+                        });
+                    }).catch(function (err) {
+                        logger.error('project.prjstorage.failed-to-load ' + prjstorage.TableType.TEXTS + ': ' + err);
+                        reject(err);
+                    });
                 }).catch(function (err) {
                     logger.error('project.prjstorage.failed-to-load ' + prjstorage.TableType.DEVICES + ': ' + err);
                     reject(err);
@@ -129,6 +143,26 @@ function setProjectData(cmd, value) {
                 section.table = prjstorage.TableType.GENERAL;
                 section.name = cmd;
                 setCharts(value);
+            } else if (cmd === ProjectDataCmdType.SetText) {
+                section.table = prjstorage.TableType.TEXTS;
+                section.name = value.name;
+                setText(value);
+            } else if (cmd === ProjectDataCmdType.DelText) {
+                section.table = prjstorage.TableType.TEXTS;
+                section.name = value.name;
+                toremove = removeText(value);
+            } else if (cmd === ProjectDataCmdType.SetAlarm) {
+                section.table = prjstorage.TableType.ALARMS;
+                section.name = value.name;
+                setAlarm(value);
+            } else if (cmd === ProjectDataCmdType.DelAlarm) {
+                section.table = prjstorage.TableType.ALARMS;
+                section.name = value.name;
+                toremove = removeAlarm(value);
+            }
+            else {
+                logger.error('prjstorage.failed-to-setdata ' + section.table);
+                reject('prjstorage.failed-to-setdata: Command not found!');    
             }
             if (toremove) {
                 prjstorage.deleteSection(section).then(result => {
@@ -146,7 +180,7 @@ function setProjectData(cmd, value) {
                 });
             }
         } catch (err) {
-            reject();
+            reject(err);
         }
     });
 }
@@ -218,6 +252,82 @@ function setCharts(charts) {
 }
 
 /**
+ * Set or add if not exist (check with taxt.name) the Text in Project
+ * @param {*} text 
+ */
+function setText(text) {
+    if (!data.texts) {
+        data.texts = [];
+    }
+    var pos = -1;
+    for (var i = 0; i < data.texts.length; i++) {
+        if (data.texts[i].name === text.name) {
+            pos = i;
+        }
+    }
+    if (pos >= 0) {
+        data.texts[pos] = text;
+    } else {
+        data.texts.push(text);
+    }
+}
+
+/**
+ * Remove the Text from Project
+ * @param {*} text 
+ */
+function removeText(text) {
+    if (data.texts) {
+        var pos = -1;
+        for (var i = 0; i < data.texts.length; i++) {
+            if (data.texts[i].name === text.name) {
+                data.texts.splice(i, 1);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Set or add if not exist (check with alarm.name) the Alarm in Project
+ * @param {*} alarm 
+ */
+function setAlarm(alarm) {
+    if (!data.alarms) {
+        data.alarms = [];
+    }
+    var pos = -1;
+    for (var i = 0; i < data.alarms.length; i++) {
+        if (data.alarms[i].name === alarm.name) {
+            pos = i;
+        }
+    }
+    if (pos >= 0) {
+        data.alarms[pos] = alarm;
+    } else {
+        data.alarms.push(alarm);
+    }
+}
+
+/**
+ * Remove the Alarm from Project
+ * @param {*} alarm 
+ */
+function removeAlarm(alarm) {
+    if (data.alarms) {
+        var pos = -1;
+        for (var i = 0; i < data.alarms.length; i++) {
+            if (data.alarms[i].name === alarm.name) {
+                data.alarms.splice(i, 1);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
  * Get the project data in accordance with autorization
  */
 function getProject(userId, userGroups) {
@@ -267,6 +377,22 @@ function setProject(prjcontent) {
                     } else if (key === 'server') {
                         // server
                         scs.push({ table: prjstorage.TableType.DEVICES, name: key, value: prjcontent[key] });
+                    } else if (key === 'texts') {
+                        // texts
+                        var texts = prjcontent[key];
+                        if (texts && texts.length) {
+                            for (var i = 0; i < texts.length; i++) {
+                                scs.push({ table: prjstorage.TableType.TEXTS, name: texts[i].name, value: texts[i] });
+                            }
+                        }
+                    } else if (key === 'alarms') {
+                        // alarms
+                        var alarms = prjcontent[key];
+                        if (alarms && alarms.length) {
+                            for (var i = 0; i < alarms.length; i++) {
+                                scs.push({ table: prjstorage.TableType.ALARMS, name: alarms[i].name, value: alarms[i] });
+                            }
+                        }                        
                     } else {
                         // charts, version
                         scs.push({ table: prjstorage.TableType.GENERAL, name: key, value: prjcontent[key] });
@@ -314,6 +440,50 @@ function getDeviceProperty(query) {
         } else {
             reject();
         }
+    });
+}
+
+/**
+ * Get the texts 
+ */
+function getTexts() {
+    return new Promise(function (resolve, reject) {
+        prjstorage.getSection(prjstorage.TableType.TEXTS).then(drows => {
+            if (drows.length > 0) {
+                var texts = []
+                for (var id = 0; id < drows.length; id++) {
+                    texts.push(JSON.parse(drows[id].value));
+                }
+                resolve(texts);
+            } else {
+                resolve();
+            }
+        }).catch(function (err) {
+            logger.error('project.prjstorage.failed-to-get-texts ' + prjstorage.TableType.TEXTS + ': ' + err);
+            reject(err);
+        });
+    });
+}
+
+/**
+ * Get the alarms 
+ */
+function getAlarms() {
+    return new Promise(function (resolve, reject) {
+        prjstorage.getSection(prjstorage.TableType.ALARMS).then(drows => {
+            if (drows.length > 0) {
+                var alarms = []
+                for (var id = 0; id < drows.length; id++) {
+                    alarms.push(JSON.parse(drows[id].value));
+                }
+                resolve(alarms);
+            } else {
+                resolve();
+            }
+        }).catch(function (err) {
+            logger.error('project.prjstorage.failed-to-get-alarms ' + prjstorage.TableType.ALARMS + ': ' + err);
+            reject(err);
+        });
     });
 }
 
@@ -400,12 +570,18 @@ const ProjectDataCmdType = {
     DelView: 'del-view',
     HmiLayout: 'layout',
     Charts: 'charts',
+    SetText: 'set-text',
+    SetText: 'set-text',
+    DelText: 'del-text',
+    SetAlarm: 'set-alarm',
+    DelAlarm: 'del-alarm',    
 }
 
 module.exports = {
     init: init,
     load: load,
     getDevices: getDevices,
+    getAlarms: getAlarms,
     getDeviceProperty: getDeviceProperty,
     setDeviceProperty: setDeviceProperty,
     setProjectData: setProjectData,

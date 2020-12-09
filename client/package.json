@@ -1,6 +1,6 @@
 {
   "name": "fuxa",
-  "version": "1.0.4",
+  "version": "1.0.7",
   "keywords": [],
   "author": "frangoteam <4frango@gmail.com>",
   "description": "Web-based Process Visualization (SCADA/HMI) software",
@@ -33,6 +33,7 @@
     "@codebyjordan/scrollbar": "^2.1.6",
     "@ngx-translate/core": "10.0.2",
     "@ngx-translate/http-loader": "3.0.1",
+    "angular2-draggable": "^2.3.2",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.18.2",
     "core-js": "^2.4.1",
@@ -49,9 +50,9 @@
     "hammerjs": "^2.0.8",
     "material-design-icons": "^3.0.1",
     "ng5-slider": "^1.1.7",
-    "ngx-color-picker": "^7.4.0",
-    "ngx-drag-drop": "^1.1.0",
+    "ngx-color-picker": "^10.1.0",
     "ngx-toastr": "^8.10.2",
+    "panzoom": "^9.2.5",
     "rxjs": "6.0.0",
     "socket.io-client": "^2.2.0",
     "zone.js": "^0.8.26"

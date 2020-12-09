@@ -11,18 +11,25 @@ import { Hmi, View, GaugeSettings, SelElement, LayoutSettings } from '../_models
 import { WindowRef } from '../_helpers/windowref';
 import { Output } from '@angular/core/src/metadata/directives';
 import { GaugePropertyComponent, GaugeDialogType } from '../gauges/gauge-property/gauge-property.component';
-import { ChartPropertyComponent } from '../gauges/chart-property/chart-property.component';
-import { LayoutPropertyComponent } from './layout-property/layout-property.component';
+import { ChartPropertyComponent } from '../gauges/controls/html-chart/chart-property/chart-property.component';
 
 import { GaugesManager } from '../gauges/gauges.component';
 import { GaugeBaseComponent } from '../gauges/gauge-base/gauge-base.component'
 import { Utils } from '../_helpers/utils';
 import { ConfirmDialogComponent } from '../gui-helpers/confirm-dialog/confirm-dialog.component';
+import { Define } from '../_helpers/define';
 
 import * as FileSaver from 'file-saver';
-import { BagPropertyComponent } from '../gauges/bag-property/bag-property.component';
-import { PipePropertyComponent } from '../gauges/pipe/pipe-property/pipe-property.component';
-import { SliderPropertyComponent } from '../gauges/slider/slider-property/slider-property.component';
+import { BagPropertyComponent } from '../gauges/controls/html-bag/bag-property/bag-property.component';
+import { PipePropertyComponent } from '../gauges/controls/pipe/pipe-property/pipe-property.component';
+import { SliderPropertyComponent } from '../gauges/controls/slider/slider-property/slider-property.component';
+import { HtmlInputComponent } from '../gauges/controls/html-input/html-input.component';
+import { HtmlButtonComponent } from '../gauges/controls/html-button/html-button.component';
+import { HtmlSelectComponent } from '../gauges/controls/html-select/html-select.component';
+import { ValueComponent } from '../gauges/controls/value/value.component';
+import { GaugeProgressComponent } from '../gauges/controls/gauge-progress/gauge-progress.component';
+import { GaugeSemaphoreComponent } from '../gauges/controls/gauge-semaphore/gauge-semaphore.component';
+import { HtmlSwitchPropertyComponent } from '../gauges/controls/html-switch/html-switch-property/html-switch-property.component';
 
 declare var Gauge: any;
 
@@ -58,7 +65,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     // users: User[] = [];
     // @ViewChild('fillcolor') fillcolor: ElementRef;
     @ViewChild('gaugepanel') gaugePanelComponent: GaugeBaseComponent;
+    @ViewChild('viewFileImportInput') viewFileImportInput: any;
 
+    fonts = Define.fonts;
     isLoading = true;
     defaultColor = Utils.defaultColor;
     colorFill: string = '#FFFFFF'
@@ -214,12 +223,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
                     }
                 },
                 (copiedpasted) => {
-                    if (copiedpasted && copiedpasted.copy && copiedpasted.past && copiedpasted.copy.length == copiedpasted.past.length) {
-                        for (let i = 0; i < copiedpasted.copy.length; i++) {
-                            let gasrc: GaugeSettings = this.getGaugeSettings(copiedpasted.copy[i]);
-                            let gadest: GaugeSettings = this.gaugesManager.createSettings(copiedpasted.past[i].id, gasrc.type);
-                            gadest.property = JSON.parse(JSON.stringify(gasrc.property));
-                            this.checkGaugeAdded(gadest);
+                    if (copiedpasted && copiedpasted.copy && copiedpasted.past) {
+                        copiedpasted.copy = copiedpasted.copy.filter(function(e) {return e });
+                        if (copiedpasted.copy.length == copiedpasted.past.length) {
+                            for (let i = 0; i < copiedpasted.copy.length; i++) {
+                                let srctype = copiedpasted.copy[i].getAttribute("type");
+                                let srcid = copiedpasted.copy[i].getAttribute("id");
+                                if (srcid && srctype) {
+                                    let gasrc: GaugeSettings = this.searchGaugeSettings({ id: srcid, type: srctype});
+                                    let gadest: GaugeSettings = this.gaugesManager.createSettings(copiedpasted.past[i].id, gasrc.type);
+                                    gadest.property = JSON.parse(JSON.stringify(gasrc.property));
+                                    this.setGaugeSettings(gadest);
+                                    this.checkGaugeAdded(gadest);    
+                                }
+                            }
                         }
                     }
                 }
@@ -279,15 +296,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.projectService.removeView(view);
     }
 
-    /**
-     * Set the HMI Layout to Project
-     * Save the Layout to Server
-     * @param layout
-     */
-    private saveLayout(layout: LayoutSettings) {
-        this.projectService.setLayout(layout);
-    }
-
     private saveHmi() {
         console.log('TO REMOVE!!!!!!!!!');
     }
@@ -319,11 +327,32 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     /**
-     * add the gauge settings to the current view items list
-     * @param ele 
+     * search gauge settings on all views items, if not exist create void settings from GaugesManager
+     * @param ele gauge element
      */
-    private setGaugeSettings(ele) {
-        this.currentView.items[ele.id] = ele;
+    private searchGaugeSettings(ele) {
+        if (ele) {
+            if (this.currentView) {
+                if (this.currentView.items[ele.id]) {
+                    return this.currentView.items[ele.id];
+                }
+            }
+            for (var i = 0; i < this.hmi.views.length; i++) {
+                if (this.hmi.views[i].items[ele.id]) {
+                    return this.hmi.views[i].items[ele.id];
+                }
+            }
+            return this.gaugesManager.createSettings(ele.id, ele.type);
+        }
+        return null;
+    }
+
+    /**
+     * add the gauge settings to the current view items list
+     * @param ga GaugeSettings 
+     */
+    private setGaugeSettings(ga) {
+        this.currentView.items[ga.id] = ga;
     }
 
     /**
@@ -366,6 +395,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
                 }
                 // this.setFillColor(this.colorFill);
                 // console.log('f:' + this.colorFill + ' s:' + this.colorStroke);
+            }
+        }
+    }
+
+    /**
+     * return the fill color of svg element 'g'
+     * @param eleId 
+     */
+    private getFillColor(eleId) {
+        if (eleId) {
+            let ele = document.getElementById(eleId);
+            if (ele) {
+                return ele.getAttribute('fill');
             }
         }
     }
@@ -466,7 +508,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         } catch (e) { }
         if (event) {
             for (let i = 0; i < event.length; i++) {
-                console.log('selected: ' + event[i].id + ' ' + event[i].type);
+                // console.log('selected: ' + event[i].id + ' ' + event[i].type);
             }
             if (event.length <= 1) {
                 this.selectedElement = event[0];
@@ -655,21 +697,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     checkMySelectedToSetColor(bkcolor, color, elems) {
         GaugesManager.initElementColor(bkcolor, color, elems);
-        // for (let i = 0; i < elems.length; i++) {
-        //     HtmlButtonComponent.initElementColor(bkcolor, color, elems[i]);
-        //     GaugeProgressComponent.initElementColor(bkcolor, color, elems[i]);
-        // }
     }
 
     /**
      * check and set the special gauge like ngx-dygraphs, ngx-gauge, ... if added
+     * if return true then the GaugeSettings is changed have to set again 
      * @param ga 
      */
     checkGaugeAdded(ga: GaugeSettings) {
         let gauge = this.gaugesManager.initElementAdded(ga, this.resolver, this.viewContainerRef, false);
         if (gauge) {
-            if (this.gaugesRef.indexOf(ga.id) === -1) {
-                this.gaugesRef[ga.id] = { type: ga.type, ref: gauge };
+            if (gauge !== true) {
+                if (this.gaugesRef.indexOf(ga.id) === -1) {
+                    this.gaugesRef[ga.id] = { type: ga.type, ref: gauge };
+                }    
             }
             this.setGaugeSettings(ga);
         }
@@ -680,8 +721,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
      */
     onMakeHyperlink() {
         let dialogRef = this.dialog.open(DialogLinkProperty, {
-            minWidth: '300px',
-            data: { url: 'https://' }
+            data: { url: 'https://' },
+			position: { top: '60px' }
         });
 
         dialogRef.afterClosed().subscribe(result => {
@@ -750,6 +791,43 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     /**
+     * Clone the View, copy and change all ids
+     * @param view 
+     */
+    onCloneView(view: View) {
+        if (view) {
+            let nn = "View_";
+            let idx = 1;
+            for (idx = 1; idx < this.hmi.views.length + 2; idx++) {
+                let found = false;
+                for (var i = 0; i < this.hmi.views.length; i++) {
+                    if (this.hmi.views[i].name === nn + idx) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    break;
+            }
+            let torename = { content: JSON.stringify(view), id: '' };
+            // change all gauge ids
+            let idrenamed = [];
+            for (let key in view.items) {
+                torename.id = key;
+                let newid = this.winRef.nativeWindow.svgEditor.renameSvgExtensionId(torename);
+                idrenamed.push(newid);
+            }
+            let strv = this.winRef.nativeWindow.svgEditor.renameAllSvgExtensionId(torename.content, idrenamed);
+            let v:View = JSON.parse(strv);
+            v.id = 'v_' + Utils.getShortGUID();
+            v.name = nn + idx;
+            this.hmi.views.push(v);
+            this.onSelectView(v);
+            this.saveView(this.currentView);
+        }
+    }
+
+    /**
      * Delete the View from hmi.views list
      * @param view View to delete
      */
@@ -757,9 +835,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         let msg = '';
         this.translateService.get('msg.view-remove', { value: view.name }).subscribe((txt: string) => { msg = txt });
         let dialogRef = this.dialog.open(ConfirmDialogComponent, {
-            minWidth: '350px',
             data: { msg: msg },
-            position: { top: '80px' }
+            position: { top: '60px' }
         });
 
         dialogRef.afterClosed().subscribe(result => {
@@ -792,7 +869,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     onRenameView(view) {
         let exist = this.hmi.views.filter((v) => v.id !== view.id).map((v) => { return v.name });
         let dialogRef = this.dialog.open(DialogDocName, {
-            minWidth: '250px',
+            position: { top: '60px' },
             data: { name: view.name, exist: exist }
         });
 
@@ -810,7 +887,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
      */
     onPropertyView(view) {
         let dialogRef = this.dialog.open(DialogDocProperty, {
-            minWidth: '250px',
+            position: { top: '60px' },
             data: { name: view.name, width: view.profile.width, height: view.profile.height, bkcolor: view.profile.bkcolor }
         });
 
@@ -853,28 +930,59 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     /**
-     * edit the layout property of project views
+     * Export view in a file json format MyView.fuxav
+     * @param view 
      */
-    onLayoutProperty() {
-        let templayout = null;
-        if (this.hmi.layout) {
-            templayout = JSON.parse(JSON.stringify(this.hmi.layout));
-        }
-        let dialogRef = this.dialog.open(LayoutPropertyComponent, {
-            // minWidth: '700px',
-            // minHeight: '700px',
-            panelClass: 'dialog-property',
-            data: { layout: templayout, views: this.hmi.views },
-            position: { top: '80px' }
-        });
-        dialogRef.afterClosed().subscribe(result => {
-            if (result) {
-                this.hmi.layout = JSON.parse(JSON.stringify(result.layout));
-                this.saveLayout(this.hmi.layout);
-            }
-        });
+    onExportView(view: View) {
+        let filename = 'MyView.fuxav';
+        let date = new Date();
+        let content = JSON.stringify(view);
+        let blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        FileSaver.saveAs(blob, filename);
     }
 
+    /**
+     * Import view from file (exported in json format MyView.fuxav)
+     */
+    onImportView() {
+        let ele = document.getElementById('viewFileUpload') as HTMLElement;
+        ele.click();
+    }
+
+        /**
+     * open Project event file loaded 
+     * @param event file resource
+     */
+    onViewFileChangeListener(event) {
+        let text = [];
+        let files = event.srcElement.files;
+        let input = event.target;
+        let reader = new FileReader();
+        reader.onload = (data) => {
+            let view = JSON.parse(reader.result.toString());
+            if (view) {
+                let idx = 1;
+                let startname = view.name;
+                let existView = null;
+                while(existView = this.hmi.views.find((v) => v.name === view.name)) {
+                    view.name = startname + '_' + idx++;
+                }
+                view.id = 'v_' + Utils.getShortGUID();
+                this.hmi.views.push(view);
+                this.onSelectView(view);
+                this.saveView(this.currentView);
+            }
+            // this.projectService.setProject(prj, true);
+        }
+
+        reader.onerror = function () {
+            let msg = 'Unable to read ' + input.files[0];
+            // this.translateService.get('msg.project-load-error', {value: input.files[0]}).subscribe((txt: string) => { msg = txt });
+            alert(msg);
+        };
+        reader.readAsText(input.files[0]);
+        this.viewFileImportInput.nativeElement.value = null;
+    }
     //#endregion
 
     //#region Panels State
@@ -940,8 +1048,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     /**
-     * edit the gauge/chart settings property, the settings are composed from gauge id... and property
+     * edit the gauges/chart settings property, the settings are composed from gauge id... and property
      * in property will be the result values saved
+     * 
      * @param settings 
      * @param callback 
      */
@@ -952,61 +1061,67 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         let eventsSupported = this.isWithEvents(settings.type);
         let actionsSupported = this.isWithActions(settings.type);
         let defaultValue = GaugesManager.getDefaultValue(settings.type);
+        let names = Object.values(this.currentView.items).map(gs => gs.name);
+        // set default name
+        if (!tempsettings.name) {
+            tempsettings.name = Utils.getNextName(GaugesManager.getPrefixGaugeName(settings.type), names);
+        }
         // settings.property = JSON.parse(settings.property);
         let dialogRef: any;
         if (dlgType === GaugeDialogType.Chart) {
             dialogRef = this.dialog.open(ChartPropertyComponent, {
-                minWidth: '700px',
-                minHeight: '700px',
-                panelClass: 'dialog-property',
+                position: { top: '60px' },
                 data: {
                     settings: tempsettings, devices: Object.values(this.projectService.getDevices()),
-                    views: hmi.views, dlgType: dlgType, charts: this.projectService.getCharts()
-                },
-                position: { top: '80px' }
+                    views: hmi.views, dlgType: dlgType, charts: this.projectService.getCharts(),
+                    names: names
+                }
             });
         } else if (dlgType === GaugeDialogType.Gauge) {
             dialogRef = this.dialog.open(BagPropertyComponent, {
-                minWidth: '800px',
-                minHeight: '780px',
-                panelClass: 'dialog-property',
+                position: { top: '30px' },
                 data: {
-                    settings: tempsettings, devices: Object.values(this.projectService.getDevices()), dlgType: dlgType
-                },
-                position: { top: '30px' }
+                    settings: tempsettings, devices: Object.values(this.projectService.getDevices()), dlgType: dlgType,
+                    names: names
+                }
             });
         } else if (dlgType === GaugeDialogType.Pipe) {
             dialogRef = this.dialog.open(PipePropertyComponent, {
-                minWidth: '700px',
-                minHeight: '700px',
-                panelClass: 'dialog-property',
+                position: { top: '60px' },
                 data: {
                     settings: tempsettings, devices: Object.values(this.projectService.getDevices()),
-                    withEvents: eventsSupported, withActions: actionsSupported
-                },
-                position: { top: '80px' }
+                    withEvents: eventsSupported, withActions: actionsSupported,
+                    names: names
+                }
             });
         } else if (dlgType === GaugeDialogType.Slider) {
             dialogRef = this.dialog.open(SliderPropertyComponent, {
-                minWidth: '700px',
-                minHeight: '700px',
-                panelClass: 'dialog-property',
+                position: { top: '60px' },
                 data: {
                     settings: tempsettings, devices: Object.values(this.projectService.getDevices()),
-                    withEvents: eventsSupported, withActions: actionsSupported
-                },
-                position: { top: '80px' }
+                    withEvents: eventsSupported, withActions: actionsSupported,
+                    names: names
+                }
+            });
+        } else if (dlgType === GaugeDialogType.Switch) {
+            dialogRef = this.dialog.open(HtmlSwitchPropertyComponent, {
+                position: { top: '60px' },
+                data: {
+                    settings: tempsettings, devices: Object.values(this.projectService.getDevices()),
+                    withEvents: eventsSupported, withActions: actionsSupported,
+                    names: names
+                }
             });
         } else {
+            let title = this.getGaugeTitle(settings.type);
             dialogRef = this.dialog.open(GaugePropertyComponent, {
-                minWidth: '700px',
-                minHeight: '700px',
-                panelClass: 'dialog-property',
+                position: { top: '60px' },
                 data: {
-                    settings: tempsettings, devices: Object.values(this.projectService.getDevices()),
-                    views: hmi.views, dlgType: dlgType, withEvents: eventsSupported, withActions: actionsSupported, default: defaultValue
-                },
-                position: { top: '80px' }
+                    settings: tempsettings, devices: Object.values(this.projectService.getDevices()), title: title,
+                    views: hmi.views, dlgType: dlgType, withEvents: eventsSupported, withActions: actionsSupported, default: defaultValue,
+                    inputs: Object.values(this.currentView.items).filter(gs => gs.name && (gs.id.startsWith('HXS_') || gs.id.startsWith('HXI_'))),
+                    names: names
+                }
             });
         }
         dialogRef.afterClosed().subscribe(result => {
@@ -1024,6 +1139,27 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
             }
         });
     }
+
+    private getGaugeTitle(type) {
+        let msg = '';
+        if (type.startsWith(HtmlInputComponent.TypeTag)) {
+            this.translateService.get('editor.controls-input-settings').subscribe((txt: string) => { msg = txt });
+        } else if (type.startsWith(ValueComponent.TypeTag)) {
+            this.translateService.get('editor.controls-output-settings').subscribe((txt: string) => { msg = txt });
+        } else if (type.startsWith(HtmlButtonComponent.TypeTag)) {
+            this.translateService.get('editor.controls-button-settings').subscribe((txt: string) => { msg = txt });
+        } else if (type.startsWith(HtmlSelectComponent.TypeTag)) {
+            this.translateService.get('editor.controls-select-settings').subscribe((txt: string) => { msg = txt });
+        } else if (type.startsWith(GaugeProgressComponent.TypeTag)) {
+            this.translateService.get('editor.controls-progress-settings').subscribe((txt: string) => { msg = txt });
+        } else if (type.startsWith(GaugeSemaphoreComponent.TypeTag)) {
+            this.translateService.get('editor.controls-semaphore-settings').subscribe((txt: string) => { msg = txt });
+        } else {
+            this.translateService.get('editor.controls-shape-settings').subscribe((txt: string) => { msg = txt });
+        }
+        return msg;
+    }
+
     //#endregion
 
     isWithShadow() {

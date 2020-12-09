@@ -72,7 +72,12 @@ if (!fs.existsSync(settings.logDir)) {
 }
 
 logger.init(settings.logDir);
-logger.info("FUXA V." + FUXA.version());
+const version = FUXA.version();
+if (version.indexOf('beta') > 0) {
+    logger.warn("FUXA V." + version);
+} else {
+    logger.info("FUXA V." + version);
+}
 
 // Check storage Database dir
 if (!settings.dbDir) {
@@ -130,7 +135,7 @@ var allowCrossDomain = function(req, res, next) {
     next();
     try {
         var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-        logger.info("Client: " + ip, false);
+        // logger.info("Client: " + ip, false);
     } catch (err) {
 
     }
@@ -143,7 +148,6 @@ app.use("/editor", express.static(settings.httpStatic));
 app.use("/device", express.static(settings.httpStatic));
 app.use("/users", express.static(settings.httpStatic));
 app.use("/view", express.static(settings.httpStatic));
-// app.use(express.static(settings.httpStatic));
 
 var accessLogStream = fs.createWriteStream(settings.logDir + '/api.log', {flags: 'a'});
 app.use(morgan('combined', { stream: accessLogStream }));

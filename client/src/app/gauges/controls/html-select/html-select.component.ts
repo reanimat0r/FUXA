@@ -65,20 +65,42 @@ export class HtmlSelectComponent extends GaugeBaseComponent implements OnInit {
         }
     }
 
-    static initElement(ga: GaugeSettings) {
+    static initElement(ga: GaugeSettings, isview: boolean = false) {
         let ele = document.getElementById(ga.id);
         if (ele) {
-            let select = Utils.searchTreeStartWith(ele, this.prefix);
+            let select = Utils.searchTreeStartWith(ele, this.prefix);            
             if (select) {
-                select.innerHTML = "";
-                ga.property.ranges.forEach(element => {
-                    let option = document.createElement("option");
-                    option.value = element.min;
-                    if (element.text) {
-                        option.text = element.text;
+                if (ga.property) {
+                    if (ga.property.readonly) {
+                        select.disabled = true;
+                        select.style['appearance'] = "none";
+                        select.style['border-width'] = "0px";
+                    } else {
+                        select.style['appearance'] = "menulist";
                     }
+                    let align = select.style['text-align'];
+                    if (align) {
+                        select.style['text-align-last'] = align;
+                    }
+                        
+                }
+                select.innerHTML = "";
+                if (!isview) {
+                    let option = document.createElement("option", );
+                    option.disabled = true;
+                    option.selected = true;//'<option value="" selected disabled hidden>Choose here</option>';
+                    option.innerHTML = "Choose...";
                     select.appendChild(option);
-                });
+                } else {
+                    ga.property.ranges.forEach(element => {
+                        let option = document.createElement("option");
+                        option.value = element.min;
+                        if (element.text) {
+                            option.text = element.text;
+                        }
+                        select.appendChild(option);
+                    });
+                }
             }
         }
     }

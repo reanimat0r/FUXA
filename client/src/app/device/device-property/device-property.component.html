@@ -1,5 +1,5 @@
 <!-- <div style="width: 100%;"> -->
-<div style="width: 100%;position: relative;padding-bottom: 40px">
+<div style="width: 100%;position: relative;">
     <div *ngIf="isToRemove" style="margin-top: 20px;margin-bottom: 20px;">
         {{'msg.device-remove' | translate}} '{{data.device.name}}' ?
     </div>
@@ -24,7 +24,7 @@
                     </mat-option>
                 </mat-select>
             </div>
-            <div class="my-form-field" style="display: inline-block;margin-bottom: 10px;margin-left: 20px;" *ngIf="!isFuxaServer">
+            <div class="my-form-field" style="display: inline-block;margin-bottom: 10px;margin-left: 20px; text-align: center;width: 80px;" *ngIf="!isFuxaServer">
                 <span>{{'device.property-enable' | translate}}</span>
                 <mat-slide-toggle color="primary" [(ngModel)]="data.device.enabled"></mat-slide-toggle>
             </div>
@@ -61,6 +61,35 @@
                         </mat-expansion-panel>
                     </div>
                 </div>
+                <div *ngIf="isBACnet(data.device.type)">
+                    <!-- <div class="my-form-field" style="display: inline-block;margin-bottom: 10px;">
+                        <span>{{'device.property-interface' | translate}}</span>
+                        <mat-select [(value)]="data.device.property.interface" style="width: 200px">
+                            <mat-option *ngFor="let nic of hostInterfaces" [value]="nic.key">
+                                {{ nic.value }}
+                            </mat-option>
+                        </mat-select>
+                    </div> -->
+                    <div class="my-form-field" style="display: block;margin-bottom: 10px;">
+                        <span>{{'device.property-device-port' | translate}}</span>
+                        <input [(ngModel)]="data.device.property.address" style="width: 300px" type="ip" (click)="onAddressChanged()">
+                    </div>
+                    <!-- <div class="my-form-field" *ngIf="isBACnet(data.device.type)" style="width: 306px">
+                        <mat-expansion-panel #panelProperty class="my-expansion-panel" style="box-shadow:none !important; background-color: #f1f3f4;" (closed)="onPropertyExpand(false)" (opened)="onPropertyExpand(true);onCheckBACnetDevice()">
+                            <mat-expansion-panel-header class="header" [collapsedHeight]="'40px'" [expandedHeight]="'40px'" style="padding-left:5px !important;padding-right:17px !important">
+                                <mat-panel-title>
+                                    <span *ngIf="propertyExpanded">{{'device.property-hide' | translate}}</span>
+                                    <span *ngIf="!propertyExpanded">{{'device.property-show' | translate}}</span>
+                                </mat-panel-title>
+                            </mat-expansion-panel-header>
+                            <div *ngIf="propertyLoading">
+                                <mat-spinner style="margin: auto" diameter="20"></mat-spinner>
+                            </div>
+                            <div *ngIf="!propertyLoading">
+                            </div>
+                        </mat-expansion-panel>
+                    </div> -->
+                </div>                
                 <div *ngIf="isSiemensS7(data.device.type)">
                     <div class="my-form-field" style="display: block;margin-bottom: 10px;">
                         <span>{{'device.property-address' | translate}}</span>
@@ -122,6 +151,10 @@
                             </mat-option>
                         </mat-select>
                     </div>
+                    <div class="my-form-field" style="display: block;margin-bottom: 10px; width: 100px; text-align: center;">
+                        <span>{{'device.property-tockenized' | translate}}</span>
+                        <mat-slide-toggle color="primary" [(ngModel)]="data.device.property.options"></mat-slide-toggle>
+                    </div>
                 </div>
                 <div *ngIf="isModbusTcp(data.device.type)">
                     <div class="my-form-field" style="display: inline-block;margin-bottom: 10px;padding-right: 10px;">
@@ -132,11 +165,15 @@
                         <span>{{'device.property-slave-id' | translate}}</span>
                         <input numberOnly [(ngModel)]="data.device.property.slaveid" style="width: 63px" type="text">
                     </div>
+                    <div class="my-form-field" style="display: block;margin-bottom: 10px; width: 100px; text-align: center;">
+                        <span>{{'device.property-tockenized' | translate}}</span>
+                        <mat-slide-toggle color="primary" [(ngModel)]="data.device.property.options"></mat-slide-toggle>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div mat-dialog-actions style="display: inline-block; position: absolute; bottom: 10px; right: 10px">
+    <div mat-dialog-actions class="dialog-action">
         <button mat-raised-button (click)="onNoClick()">{{'dlg.cancel' | translate}}</button>
         <button mat-raised-button color="primary" [disabled]="!isValid(data.device)" (click)="onOkClick()" [mat-dialog-close]="data" cdkFocusInitial>{{'dlg.ok' | translate}}</button>
     </div>
